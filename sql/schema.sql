@@ -101,8 +101,17 @@ create table if not exists metas (
   site            text primary key,
   pautas_por_dia  int not null default 5,
   wp_url          text,
+  criterios       jsonb,                 -- pesos da selecao automatica (ver radar/pontua.py)
   atualizado_em   timestamptz not null default now()
 );
+
+-- Colunas da selecao automatica (radar/selecao.py preenche; a aba exibe).
+-- Em bases criadas antes delas, os alter abaixo completam o schema.
+alter table metas  add column if not exists criterios jsonb;
+alter table pautas add column if not exists pontuacao int;
+alter table pautas add column if not exists motivo_selecao text;
+alter table pautas add column if not exists selecionada_em timestamptz;
+create index if not exists idx_pautas_selecao on pautas (site, selecionada_em desc);
 
 -- Registro de execucao dos crons. E' o que o painel le para responder
 -- "rodou? quando? deu certo?" sem precisar abrir o GitHub Actions.

@@ -18,6 +18,7 @@ from .classifica import avalia, sugere
 from .config import carrega_sites
 from .fontes import coleta
 from .normaliza import canoniza_url, hash_dedup, sem_acento, veiculo_de
+from .selecao import roda_selecao
 
 LIMITE_POR_FONTE = 40
 
@@ -147,9 +148,16 @@ def main() -> int:
             })
             continue
         resumo.append(r)
+        # Selecao automatica do dia: falha aqui nao derruba a coleta.
+        try:
+            selecionadas = roda_selecao(banco, nome)
+        except Exception as erro:
+            print(f"  selecao de {nome} falhou: {erro}")
+            selecionadas = 0
         banco.registra_execucao({
             "fluxo": "radar", "site": nome, "status": "ok",
-            "resumo": f"{r['itens']} itens novos, {r['pautas']} pautas",
+            "resumo": f"{r['itens']} itens novos, {r['pautas']} pautas"
+                      + (f", {selecionadas} selecionadas" if selecionadas else ""),
             "inicio": inicio.isoformat(),
         })
 

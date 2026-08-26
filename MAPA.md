@@ -22,6 +22,11 @@ radar/
 │   │                         mesmo fato. 'exige_dado' marca quem precisa da base.
 │   ├── classifica.py       ← relevancia + hub + montagem dos titulos sugeridos.
 │   │                         Usa LLM se houver chave; senao, palavra-chave.
+│   ├── pontua.py           ← pontuacao de pautas (News/Discover): dado proprio >
+│   │                         frescor > angulo. Pesos vem de metas.criterios.
+│   ├── selecao.py          ← selecao automatica do dia: dentro da meta, aprova
+│   │                         sozinho as melhores (uma por fato, acima do piso).
+│   │                         Roda no fim de cada ciclo do principal.
 │   ├── ptax.py             ← cliente da API PTAX do Banco Central (fonte primaria
 │   │                         do doll). Trata dia sem cotacao e o formato ambiguo
 │   │                         de data da Olinda.
@@ -48,6 +53,7 @@ radar/
 │       └── middleware.js       ← Basic Auth com PAINEL_SENHA
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
+├── testar_selecao.py       ← teste offline da selecao automatica de pautas
 ├── wordpress/
 │   ├── radar-jsonld.php    ← mu-plugin: imprime o JSON-LD no <head> e ajusta
 │   │                         max-snippet/max-image-preview

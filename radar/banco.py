@@ -123,6 +123,50 @@ class Banco:
          .update({"wp_post_id": post_id, "url_publicada": url})
          .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
 
+    # -- selecao automatica de pautas ---------------------------------------
+
+    def meta_do_site(self, site: str) -> dict | None:
+        if self.seco or not self.cliente:
+            return None
+        r = self.cliente.table("metas").select("*").eq("site", site).limit(1).execute()
+        return r.data[0] if r.data else None
+
+    def pautas_novas(self, site: str, limite: int = 200) -> list[dict]:
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("pautas")
+             .select("id,item_id,angulo,titulo_sug,dado_proprio,criado_em,itens(publicado_em)")
+             .eq("site", site).eq("status", "nova")
+             .order("criado_em", desc=True).limit(limite).execute())
+        return r.data or []
+
+    def fatos_selecionados_hoje(self, site: str, inicio_dia_iso: str) -> set:
+        """item_ids das pautas ja escolhidas hoje (inclusive as vetadas depois):
+        o mesmo fato nao volta por outro angulo na reposicao."""
+        if self.seco or not self.cliente:
+            return set()
+        r = (self.cliente.table("pautas").select("item_id")
+             .eq("site", site).gte("selecionada_em", inicio_dia_iso).execute())
+        return {l["item_id"] for l in (r.data or []) if l.get("item_id")}
+
+    def selecionadas_hoje(self, site: str, inicio_dia_iso: str) -> int:
+        if self.seco or not self.cliente:
+            return 0
+        r = (self.cliente.table("pautas").select("id", count="exact")
+             .eq("site", site).eq("status", "aprovada")
+             .gte("selecionada_em", inicio_dia_iso).execute())
+        return r.count or 0
+
+    def marca_selecionada(self, pauta_id: int, pontuacao: int, motivo: str,
+                          quando_iso: str) -> None:
+        if self.seco:
+            print(f"  [seco] selecionada pauta {pauta_id} ({pontuacao} pts)")
+            return
+        (self.cliente.table("pautas")
+         .update({"status": "aprovada", "pontuacao": pontuacao,
+                  "motivo_selecao": motivo, "selecionada_em": quando_iso})
+         .eq("id", pauta_id).execute())
+
     # -- execucoes -----------------------------------------------------------
 
     def registra_execucao(self, registro: dict) -> None:
