@@ -1,0 +1,30 @@
+name: configurar-wordpress
+
+# So' manual: e' uma tarefa de uma vez por site, nao de rotina.
+# Serve tambem como braco remoto quando a maquina local nao alcanca o site.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "id do site em config/sites.yaml"
+        required: true
+        default: "doll"
+      seco:
+        description: "so' mostrar o que faria"
+        type: boolean
+        default: true
+
+jobs:
+  configurar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - run: |
+          python -m radar.configurar_wp --site "${{ inputs.site }}" \
+            ${{ inputs.seco && '--seco' || '' }}
+        env:
+          WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
+          WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}

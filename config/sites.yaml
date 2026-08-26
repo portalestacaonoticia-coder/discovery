@@ -1,0 +1,120 @@
+# Um bloco por site. Adicionar site novo = adicionar bloco aqui, nada de codigo.
+# Todo campo aqui vira comportamento do radar: fontes, hubs, angulos e permissao de publicar.
+
+sites:
+
+  ferrugem:
+    dominio: ferrugem.com.br
+    entidade: "Ferrugem (cantor)"          # como o site quer ser entendido por buscador e IA
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    # Hubs = paginas permanentes. Toda pauta e' classificada em um deles.
+    # 'termos' alimenta o classificador por palavra-chave (modo sem LLM).
+    hubs:
+      - id: agenda
+        titulo: "Agenda de shows do Ferrugem"
+        url: /agenda-de-shows
+        termos: [show, shows, turne, turnê, ingresso, ingressos, apresentacao, apresentação, festival, palco]
+      - id: perfil
+        titulo: "Quem e Ferrugem"
+        url: /quem-e-ferrugem
+        termos: [biografia, historia, história, carreira, entrevista, familia, família]
+      - id: musicas
+        titulo: "Discografia e lancamentos"
+        url: /discografia
+        termos: [album, álbum, single, lancamento, lançamento, clipe, dvd, ep, feat, parceria]
+      - id: premios
+        titulo: "Premios e indicacoes"
+        url: /premios
+        termos: [premio, prêmio, grammy, multishow, indicacao, indicação, trofeu, troféu]
+
+    # Sobrescreve o molde de titulo de um angulo so' para este site.
+    moldes:
+      servico: "{fato}: horario, ingressos e como chegar"
+
+    fontes:
+      - tipo: google_news
+        consulta: "Ferrugem cantor"
+      - tipo: google_news
+        consulta: "Ferrugem pagode show"
+      # sitemap de noticias de concorrente: radar mais rapido que existe, e' publico e
+      # atualiza em segundos. So' leitura de titulo/URL — nada de copiar texto.
+      # - tipo: sitemap_news
+      #   url: https://exemplo-portal.com.br/sitemap-news.xml
+
+    # Base propria: e' o que transforma "reescrever noticia" em "noticia nova".
+    # Aqui, o historico de shows — origem do angulo "quantas vezes ele ja tocou na cidade".
+    base: eventos
+
+    # Permissao de publicar sozinho, por tipo de pauta. Ver README, secao "Portoes".
+    publicacao:
+      calendario: auto       # fato com data marcada + dado da base propria
+      radar: rascunho        # pauta vinda de noticia de terceiro: sempre revisao humana
+
+  doll:
+    dominio: doll.com.br
+    entidade: "Doll — Dolar e Cambio"      # o dominio nao diz 'dolar': a entidade precisa dizer
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    hubs:
+      - id: cotacao
+        titulo: "Cotacao do dolar hoje"
+        url: /cotacao-do-dolar
+        termos: [dolar, dólar, cotacao, cotação, ptax, cambio, câmbio, moeda]
+      - id: politica-monetaria
+        titulo: "Como Fed e Copom mexem no dolar"
+        url: /fed-copom-dolar
+        termos: [fed, fomc, copom, juros, selic, ata, powell, banco central]
+      - id: viagem
+        titulo: "Dolar para viagem: turismo, cartao e IOF"
+        url: /dolar-viagem
+        termos: [viagem, turismo, iof, cartao, cartão, remessa, exterior, casa de cambio]
+      - id: indicadores
+        titulo: "Indicadores que movem o dolar"
+        url: /indicadores
+        termos: [ipca, cpi, payroll, pib, inflacao, inflação, focus, balanca, balança]
+
+    # Aliquotas usadas nas tabelas de conversao. CONFERIR na Receita/decreto antes
+    # de publicar: IOF muda por decreto e o numero errado sai em toda materia.
+    iof:
+      cartao_credito: 3.50
+      especie: 3.50
+
+    moldes:
+      servico: "{fato}: quanto custa e o que fazer agora"
+      contagem: "{fato}: {dado_curto}"
+
+    fontes:
+      - tipo: google_news
+        consulta: "dolar cotacao Banco Central"
+      - tipo: google_news
+        consulta: "dolar hoje cambio real"
+
+    base: cotacoes
+
+    # Senha de aplicativo do WordPress (Usuarios -> Perfil -> Senhas de aplicativo).
+    # O valor fica no .env; aqui vai so' o NOME da variavel.
+    wordpress:
+      url: https://doll.com.br
+      usuario_env: WP_DOLL_USUARIO
+      senha_env: WP_DOLL_SENHA
+      categoria_por_hub: true
+
+      # Usado uma vez, por `python -m radar.configurar_wp --site doll`.
+      # Site novo: copiar este bloco, trocar os textos, rodar. Nada manual.
+      configuracao_inicial:
+        titulo: "Doll"
+        tagline: "Dólar, câmbio e o que isso muda no seu bolso"
+        fuso: America/Sao_Paulo
+        formato_data: "j \\d\\e F \\d\\e Y"
+        formato_hora: "H:i"
+        inicio_semana: 1
+        limpar_exemplos: true       # manda 'Hello world!' e 'Sample Page' para a lixeira
+        plugins:
+          - seo-by-rank-math
+
+    publicacao:
+      calendario: auto
+      radar: rascunho
