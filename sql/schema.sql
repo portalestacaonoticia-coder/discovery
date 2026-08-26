@@ -94,6 +94,16 @@ create table if not exists artigos (
 );
 create index if not exists idx_artigos_status on artigos (site, status, criado_em desc);
 
+-- Meta editorial por site: quantas pautas o site quer soltar por dia e onde
+-- fica o WordPress para contar o que ja saiu. Editada pela aba Radar do
+-- conteudo.tihee; os crons nao escrevem aqui.
+create table if not exists metas (
+  site            text primary key,
+  pautas_por_dia  int not null default 5,
+  wp_url          text,
+  atualizado_em   timestamptz not null default now()
+);
+
 -- Registro de execucao dos crons. E' o que o painel le para responder
 -- "rodou? quando? deu certo?" sem precisar abrir o GitHub Actions.
 create table if not exists execucoes (
@@ -114,3 +124,4 @@ alter table pautas    enable row level security;
 alter table eventos   enable row level security;
 alter table cotacoes  enable row level security;
 alter table execucoes enable row level security;
+alter table metas     enable row level security;
