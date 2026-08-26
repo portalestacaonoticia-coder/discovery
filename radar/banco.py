@@ -123,6 +123,22 @@ class Banco:
          .update({"wp_post_id": post_id, "url_publicada": url})
          .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
 
+    # -- execucoes -----------------------------------------------------------
+
+    def registra_execucao(self, registro: dict) -> None:
+        """Uma linha por rodada de cron. E' o que o painel le para responder
+        'rodou? quando? deu certo?' sem abrir o GitHub Actions."""
+        if self.seco:
+            print(f"  [seco] execucao {registro['fluxo']}/{registro.get('site')}: "
+                  f"{registro['status']} — {registro.get('resumo')}")
+            return
+        try:
+            self.cliente.table("execucoes").insert(registro).execute()
+        except Exception as erro:
+            # Telemetria nunca derruba a rodada: sem a tabela (schema.sql
+            # desatualizado no Supabase), avisa e segue.
+            print(f"  aviso: execucao nao registrada ({erro})")
+
     def variacao_cotacao(self, site: str, dias: int = 30) -> dict | None:
         if self.seco or not self.cliente:
             return None

@@ -37,6 +37,28 @@ No Supabase, rodar `sql/schema.sql` uma vez. Em producao, o
 Settings → Secrets → Actions (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
 `DISCORD_WEBHOOK`, `ANTHROPIC_API_KEY`).
 
+## Painel de acompanhamento
+
+Painel web (Next.js, em `painel/`) com a fila de pautas, as cotacoes com
+grafico, os artigos gerados e as execucoes dos crons — um cartao por site,
+site novo aparece sozinho.
+
+```bash
+cd painel
+npm install
+cp .env.example .env.local    # mesmos SUPABASE_URL e SUPABASE_SERVICE_KEY do .env da raiz
+npm run dev                   # http://localhost:3000
+```
+
+O painel le o banco SO no servidor (service key; o RLS continua sem policy
+publica) e o acesso e' protegido por senha unica (`PAINEL_SENHA` — vazia, abre
+livre, so' para dev). Os crons gravam cada rodada na tabela `execucoes`
+(schema.sql) e o painel mostra "rodou? quando? deu certo?" sem abrir o Actions.
+
+Deploy na Vercel: importar o repositorio com **Root Directory = `painel`** e
+definir `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` e `PAINEL_SENHA` nas variaveis
+de ambiente do projeto.
+
 ## Configurar um WordPress novo
 
 ```bash

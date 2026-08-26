@@ -1,0 +1,35 @@
+/* Tokens do painel — paleta validada da skill dataviz (claro + escuro). */
+:root {
+  color-scheme: light;
+  --plano: #f9f9f7;            /* fundo da pagina */
+  --superficie: #fcfcfb;       /* cartoes e graficos */
+  --tinta: #0b0b0b;
+  --tinta-2: #52514e;
+  --tinta-suave: #898781;
+  --grade: #e1e0d9;            /* linha de grade fina */
+  --eixo: #c3c2b7;
+  --borda: rgba(11, 11, 11, 0.1);
+  --serie-1: #2a78d6;          /* unica serie do grafico */
+  --bom: #0ca30c;
+  --texto-bom: #006300;
+  --alerta: #fab219;
+  --critico: #d03b3b;
+  --info: #2a78d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --plano: #0d0d0d;
+    --superficie: #1a1a19;
+    --tinta: #ffffff;
+    --tinta-2: #c3c2b7;
+    --tinta-suave: #898781;
+    --grade: #2c2c2a;
+    --eixo: #383835;
+    --borda: rgba(255, 255, 255, 0.1);
+    --serie-1: #3987e5;
+    --texto-bom: #0ca30c;
+    --info: #3987e5;
+  }
+}

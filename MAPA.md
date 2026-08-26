@@ -8,8 +8,8 @@ radar/
 ├── config/sites.yaml       ← TODA a configuracao de negocio: sites, hubs, fontes,
 │                             moldes de titulo e permissao de publicacao automatica.
 │                             Site novo se adiciona aqui, sem tocar em codigo.
-├── sql/schema.sql          ← tabelas Supabase (itens, pautas, fontes) + bases
-│                             proprias por site (eventos, cotacoes). RLS ligado.
+├── sql/schema.sql          ← tabelas Supabase (itens, pautas, fontes, execucoes) +
+│                             bases proprias por site (eventos, cotacoes). RLS ligado.
 ├── radar/
 │   ├── config.py           ← le sites.yaml e .env
 │   ├── fontes.py           ← coletores: rss, google_news, sitemap_news.
@@ -35,6 +35,17 @@ radar/
 │   │                         aplicativo). Idempotente: reroda = atualiza o post.
 │   ├── alerta.py           ← webhook do Discord (silencioso se nao configurado)
 │   └── principal.py        ← orquestra tudo; e' o entrypoint (`python -m radar.principal`)
+├── painel/                 ← painel web (Next.js) de acompanhamento: fila de pautas,
+│   │                         cotacoes com grafico, artigos e execucoes dos crons.
+│   │                         Le o Supabase SO no servidor (service key; RLS trancado)
+│   │                         e protege o acesso com senha unica (PAINEL_SENHA).
+│   └── src/
+│       ├── lib/supabase.js     ← UNICO ponto de acesso ao banco (espelho do banco.py)
+│       ├── lib/consultas.js    ← todas as leituras do painel
+│       ├── features/           ← pautas, cotacoes (grafico SVG), artigos, execucoes
+│       ├── components/Selo.js  ← selo de status (cor sempre com rotulo)
+│       ├── app/                ← / (visao geral por site) e /[site] (detalhe)
+│       └── middleware.js       ← Basic Auth com PAINEL_SENHA
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
 ├── wordpress/radar-jsonld.php  ← mu-plugin: imprime o JSON-LD no <head> e ajusta
@@ -55,3 +66,5 @@ radar/
   + ramo em `principal.dado_proprio`
 - **Publicacao no CMS** → ainda nao existe. Entra como `radar/publicador.py`,
   lendo `pautas` com status `aprovada`.
+- **Painel** → `painel/src/features/<area>` para uma secao nova;
+  `painel/src/lib/consultas.js` para uma leitura nova do banco.

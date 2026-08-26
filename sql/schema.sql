@@ -94,9 +94,23 @@ create table if not exists artigos (
 );
 create index if not exists idx_artigos_status on artigos (site, status, criado_em desc);
 
-alter table artigos  enable row level security;
-alter table fontes   enable row level security;
-alter table itens    enable row level security;
-alter table pautas   enable row level security;
-alter table eventos  enable row level security;
-alter table cotacoes enable row level security;
+-- Registro de execucao dos crons. E' o que o painel le para responder
+-- "rodou? quando? deu certo?" sem precisar abrir o GitHub Actions.
+create table if not exists execucoes (
+  id      bigserial primary key,
+  fluxo   text not null,                -- radar | dolar
+  site    text,
+  status  text not null,                -- ok | sem_cotacao | erro
+  resumo  text,                         -- "3 itens, 5 pautas" ou a mensagem de erro
+  inicio  timestamptz not null,
+  fim     timestamptz not null default now()
+);
+create index if not exists idx_execucoes_fluxo on execucoes (fluxo, fim desc);
+
+alter table artigos   enable row level security;
+alter table fontes    enable row level security;
+alter table itens     enable row level security;
+alter table pautas    enable row level security;
+alter table eventos   enable row level security;
+alter table cotacoes  enable row level security;
+alter table execucoes enable row level security;

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import os
@@ -82,12 +82,17 @@ def main() -> int:
         return 0
 
     dia = date.fromisoformat(args.data) if args.data else date.today()
+    inicio_exec = datetime.now(timezone.utc)
 
     try:
         hoje = cotacao_do_dia(dia)
     except SemCotacao as erro:
         # Fim de semana e feriado nao sao falha: o dia simplesmente nao tem pauta.
         print(f"sem pauta hoje: {erro}")
+        banco.registra_execucao({
+            "fluxo": "dolar", "site": SITE, "status": "sem_cotacao",
+            "resumo": str(erro), "inicio": inicio_exec.isoformat(),
+        })
         return 0
 
     banco.grava_cotacao({
@@ -100,7 +105,15 @@ def main() -> int:
     if serie[-1]["data"] != hoje["data"]:
         serie = serie + [hoje]
 
-    liberado, motivo = portoes(hoje, serie)
+    try:
+        liberado, motivo = portoes(hoje, serie)
+    except ValueError as erro:
+        # Dado corrompido nao vira artigo; registra para o painel e sobe o erro.
+        banco.registra_execucao({
+            "fluxo": "dolar", "site": SITE, "status": "erro",
+            "resumo": str(erro)[:500], "inicio": inicio_exec.isoformat(),
+        })
+        raise
     artigo = monta(hoje, serie, site)
     status = "publicada" if (liberado and site["publicacao"]["calendario"] == "auto") else "rascunho"
 
@@ -139,6 +152,11 @@ def main() -> int:
             # e em saida/. Avisa e sai com codigo de erro para o Actions marcar.
             avisa(f"**doll** artigo gerado mas NAO publicado: {erro}")
             print(f"falha ao publicar: {erro}")
+            banco.registra_execucao({
+                "fluxo": "dolar", "site": SITE, "status": "erro",
+                "resumo": f"artigo gerado mas nao publicado: {erro}"[:500],
+                "inicio": inicio_exec.isoformat(),
+            })
             return 2
 
     print(f"[{status}] {artigo['titulo']}\n  portao: {motivo}\n  arquivo: saida/{base_nome}.md"
@@ -148,6 +166,11 @@ def main() -> int:
     else:
         avisa(f"**doll — cotacao {hoje['data']:%d/%m}** [{status}]\n{artigo['titulo']}\n_{motivo}_"
               + (f"\n{link}" if link else ""))
+    banco.registra_execucao({
+        "fluxo": "dolar", "site": SITE, "status": "ok",
+        "resumo": f"[{status}] {artigo['titulo']} — {motivo}",
+        "inicio": inicio_exec.isoformat(),
+    })
     return 0
 
 

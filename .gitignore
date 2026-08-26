@@ -1,4 +1,11 @@
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .venv/
+
+# painel (Next.js)
+node_modules/
+.next/
+.vercel/

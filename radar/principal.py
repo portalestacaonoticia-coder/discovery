@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime, timezone
 
 from .alerta import avisa
 from .banco import Banco
@@ -129,14 +130,35 @@ def main() -> int:
         sites = {args.site: sites[args.site]}
 
     banco = Banco(seco=args.seco)
-    resumo = [roda_site(nome, cfg, banco) for nome, cfg in sites.items()]
+    resumo = []
+    falhas = 0
+    for nome, cfg in sites.items():
+        inicio = datetime.now(timezone.utc)
+        try:
+            r = roda_site(nome, cfg, banco)
+        except Exception as erro:
+            # Um site quebrado nao derruba a rodada dos outros: o painel mostra
+            # o erro e a saida != 0 marca a execucao no Actions.
+            print(f"  {nome} falhou: {erro}")
+            falhas += 1
+            banco.registra_execucao({
+                "fluxo": "radar", "site": nome, "status": "erro",
+                "resumo": str(erro)[:500], "inicio": inicio.isoformat(),
+            })
+            continue
+        resumo.append(r)
+        banco.registra_execucao({
+            "fluxo": "radar", "site": nome, "status": "ok",
+            "resumo": f"{r['itens']} itens novos, {r['pautas']} pautas",
+            "inicio": inicio.isoformat(),
+        })
 
     total = sum(r["pautas"] for r in resumo)
     if total and not args.seco:
         linhas = "\n".join(f"• {r['site']}: {r['itens']} itens, {r['pautas']} pautas"
                            for r in resumo if r["pautas"])
         avisa(f"**Radar de pautas**\n{linhas}")
-    return 0
+    return 1 if falhas else 0
 
 
 if __name__ == "__main__":
