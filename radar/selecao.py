@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from .banco import Banco
-from .pontua import seleciona
+from .pontua import criterios_com_padrao, eh_quente, proximo_horario_fixa, seleciona
 
 # Sao Paulo e' UTC-3 fixo desde 2019; dispensa tzdata no Windows.
 FUSO_SP = timezone(timedelta(hours=-3))
@@ -30,8 +30,21 @@ def roda_selecao(banco: Banco, site: str) -> int:
 
     escolhidas = seleciona(banco.pautas_novas(site), vagas, meta.get("criterios"),
                            fatos_usados=banco.fatos_selecionados_hoje(site, inicio_dia))
-    quando = datetime.now(timezone.utc).isoformat()
+    quando = datetime.now(timezone.utc)
+    criterios = criterios_com_padrao(meta.get("criterios"))
+    ultimo_txt = banco.ultimo_horario_sugerido(site, inicio_dia)
+    ultimo = datetime.fromisoformat(ultimo_txt.replace("Z", "+00:00")) if ultimo_txt else None
+
     for p in escolhidas:
-        banco.marca_selecionada(p["id"], p["pontuacao"], p["motivo_selecao"], quando)
-        print(f"  selecionada [{p['pontuacao']} pts] {(p.get('titulo_sug') or '')[:80]}")
+        # Duas pistas: quente sai o quanto antes; fixa distribui pela janela.
+        if eh_quente(p, criterios, quando):
+            horario = quando
+        else:
+            horario = proximo_horario_fixa(quando, ultimo, criterios,
+                                           int(meta.get("pautas_por_dia") or 1), FUSO_SP)
+            ultimo = horario
+        banco.marca_selecionada(p["id"], p["pontuacao"], p["motivo_selecao"],
+                                quando.isoformat(), horario.isoformat())
+        rotulo = "para já" if horario <= quando else f"para {horario.astimezone(FUSO_SP):%H:%M}"
+        print(f"  selecionada [{p['pontuacao']} pts, {rotulo}] {(p.get('titulo_sug') or '')[:70]}")
     return len(escolhidas)

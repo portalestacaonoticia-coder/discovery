@@ -157,14 +157,25 @@ class Banco:
              .gte("selecionada_em", inicio_dia_iso).execute())
         return r.count or 0
 
+    def ultimo_horario_sugerido(self, site: str, inicio_dia_iso: str) -> str | None:
+        """O slot mais tarde ja marcado hoje — base do espacamento da pista fixa."""
+        if self.seco or not self.cliente:
+            return None
+        r = (self.cliente.table("pautas").select("horario_sugerido")
+             .eq("site", site).gte("selecionada_em", inicio_dia_iso)
+             .not_.is_("horario_sugerido", "null")
+             .order("horario_sugerido", desc=True).limit(1).execute())
+        return r.data[0]["horario_sugerido"] if r.data else None
+
     def marca_selecionada(self, pauta_id: int, pontuacao: int, motivo: str,
-                          quando_iso: str) -> None:
+                          quando_iso: str, horario_iso: str) -> None:
         if self.seco:
             print(f"  [seco] selecionada pauta {pauta_id} ({pontuacao} pts)")
             return
         (self.cliente.table("pautas")
          .update({"status": "aprovada", "pontuacao": pontuacao,
-                  "motivo_selecao": motivo, "selecionada_em": quando_iso})
+                  "motivo_selecao": motivo, "selecionada_em": quando_iso,
+                  "horario_sugerido": horario_iso})
          .eq("id", pauta_id).execute())
 
     # -- execucoes -----------------------------------------------------------

@@ -22,21 +22,54 @@ PADRAO = {
                 "servico": 20, "contexto": 15, "consequencia": 8},
     # frescor do FATO: valor de noticia morre em horas
     "frescor": {"ate6h": 30, "ate24h": 20, "ate48h": 10},
+    # fato com ate N horas e' "quente": sai o quanto antes. Acima disso e'
+    # "fixa": o valor vem do dado, entao distribui ao longo do dia.
+    "quente_ate_horas": 24,
+    # janela editorial (horas cheias, fuso de Sao Paulo) das pautas fixas
+    "janela": {"inicio": 8, "fim": 20},
 }
 
 
 def criterios_com_padrao(criterios: dict | None) -> dict:
     """Mescla os criterios salvos com os padroes (salvo incompleto nao quebra)."""
-    c = {k: PADRAO[k] for k in ("dado_proprio", "minimo")}
+    c = {k: PADRAO[k] for k in ("dado_proprio", "minimo", "quente_ate_horas")}
     c["angulos"] = dict(PADRAO["angulos"])
     c["frescor"] = dict(PADRAO["frescor"])
+    c["janela"] = dict(PADRAO["janela"])
     if criterios:
-        for chave in ("dado_proprio", "minimo"):
+        for chave in ("dado_proprio", "minimo", "quente_ate_horas"):
             if isinstance(criterios.get(chave), (int, float)):
                 c[chave] = criterios[chave]
         c["angulos"].update(criterios.get("angulos") or {})
         c["frescor"].update(criterios.get("frescor") or {})
+        c["janela"].update(criterios.get("janela") or {})
     return c
+
+
+def horas_do_fato(pauta: dict, agora: datetime) -> float:
+    referencia = (pauta.get("itens") or {}).get("publicado_em") or pauta["criado_em"]
+    quando = datetime.fromisoformat(str(referencia).replace("Z", "+00:00"))
+    return (agora - quando).total_seconds() / 3600
+
+
+def eh_quente(pauta: dict, criterios: dict, agora: datetime) -> bool:
+    """Quente = o valor esta na hora: sai o quanto antes. O resto e' fixa."""
+    return horas_do_fato(pauta, agora) <= criterios["quente_ate_horas"]
+
+
+def proximo_horario_fixa(agora: datetime, ultimo: datetime | None,
+                         criterios: dict, meta: int, fuso) -> datetime:
+    """Proximo slot da pista fixa: espacado pela meta dentro da janela
+    editorial; nunca no passado; passou do fim da janela, cola no fim."""
+    j = criterios["janela"]
+    hoje = agora.astimezone(fuso)
+    inicio = hoje.replace(hour=int(j["inicio"]), minute=0, second=0, microsecond=0)
+    fim = hoje.replace(hour=int(j["fim"]), minute=0, second=0, microsecond=0)
+    espaco = (fim - inicio) / max(meta, 1)
+    candidato = max(agora, inicio)
+    if ultimo is not None:
+        candidato = max(candidato, ultimo + espaco)
+    return min(candidato, fim)
 
 
 def pontua(pauta: dict, criterios: dict, agora: datetime) -> tuple[int, str]:
@@ -48,9 +81,7 @@ def pontua(pauta: dict, criterios: dict, agora: datetime) -> tuple[int, str]:
         pontos += criterios["dado_proprio"]
         motivos.append("dado próprio")
 
-    referencia = (pauta.get("itens") or {}).get("publicado_em") or pauta["criado_em"]
-    quando = datetime.fromisoformat(str(referencia).replace("Z", "+00:00"))
-    horas = (agora - quando).total_seconds() / 3600
+    horas = horas_do_fato(pauta, agora)
     if horas <= 6:
         pontos += criterios["frescor"]["ate6h"]
         motivos.append("muito fresca (≤6h)")

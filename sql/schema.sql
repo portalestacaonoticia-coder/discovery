@@ -111,6 +111,7 @@ alter table metas  add column if not exists criterios jsonb;
 alter table pautas add column if not exists pontuacao int;
 alter table pautas add column if not exists motivo_selecao text;
 alter table pautas add column if not exists selecionada_em timestamptz;
+alter table pautas add column if not exists horario_sugerido timestamptz;  -- quente = ja; fixa = slot na janela
 create index if not exists idx_pautas_selecao on pautas (site, selecionada_em desc);
 
 -- Registro de execucao dos crons. E' o que o painel le para responder

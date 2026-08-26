@@ -4,7 +4,8 @@
 """
 from datetime import datetime, timedelta, timezone
 
-from radar.pontua import criterios_com_padrao, pontua, seleciona
+from radar.pontua import (criterios_com_padrao, eh_quente, pontua,
+                          proximo_horario_fixa, seleciona)
 
 AGORA = datetime(2026, 8, 26, 15, 0, tzinfo=timezone.utc)
 
@@ -52,5 +53,20 @@ assert len(tres) == 2
 repos = seleciona([pauta(7, 30, "contagem", dado="x"), pauta(8, 31, "servico")],
                   vagas=1, agora=AGORA, fatos_usados={30})
 assert [p["id"] for p in repos] == [8], [p["id"] for p in repos]
+
+# duas pistas: fato de 2h e' quente; de 30h e' fixa
+assert eh_quente(pauta(9, 40, "contexto", horas_atras=2), c, AGORA)
+assert not eh_quente(pauta(10, 41, "agregado", horas_atras=30), c, AGORA)
+
+# pista fixa: espacada pela meta dentro da janela (8h-20h SP), nunca no passado
+SP = timezone(timedelta(hours=-3))
+DEZ_DA_MANHA = datetime(2026, 8, 26, 13, 0, tzinfo=timezone.utc)  # 10h em SP
+primeiro = proximo_horario_fixa(DEZ_DA_MANHA, None, c, meta=6, fuso=SP)
+assert primeiro == DEZ_DA_MANHA, primeiro  # sem slot anterior: agora mesmo
+segundo = proximo_horario_fixa(DEZ_DA_MANHA, primeiro, c, meta=6, fuso=SP)
+assert segundo == DEZ_DA_MANHA + timedelta(hours=2), segundo  # 12h/6 = 2h de espaco
+# passou do fim da janela, cola nas 20h de SP (23h UTC)
+tarde = proximo_horario_fixa(DEZ_DA_MANHA, DEZ_DA_MANHA + timedelta(hours=12), c, meta=6, fuso=SP)
+assert tarde.astimezone(SP).hour == 20, tarde
 
 print("selecao ok: pontuacao, dedup por fato, piso, criterios do editor e vagas")

@@ -25,8 +25,9 @@ radar/
 │   ├── pontua.py           ← pontuacao de pautas (News/Discover): dado proprio >
 │   │                         frescor > angulo. Pesos vem de metas.criterios.
 │   ├── selecao.py          ← selecao automatica do dia: dentro da meta, aprova
-│   │                         sozinho as melhores (uma por fato, acima do piso).
-│   │                         Roda no fim de cada ciclo do principal.
+│   │                         sozinho as melhores (uma por fato, acima do piso) e
+│   │                         agenda: quente sai ja, fixa se espalha pela janela
+│   │                         editorial. Roda no fim de cada ciclo do principal.
 │   ├── ptax.py             ← cliente da API PTAX do Banco Central (fonte primaria
 │   │                         do doll). Trata dia sem cotacao e o formato ambiguo
 │   │                         de data da Olinda.
