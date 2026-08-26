@@ -47,7 +47,9 @@ def cotacao_do_dia(dia: date) -> dict:
         url = (f"{BASE}?@dataCotacao='{dia.strftime(formato)}'"
                f"&$top=1&$format=json")
         r = requests.get(url, headers=CABECALHO, timeout=20)
-        r.raise_for_status()
+        # Erro HTTP num formato de data nao encerra a busca: o outro ainda vale.
+        if r.status_code != 200:
+            continue
         linhas = _interpreta(r.json())
         # So' aceita se a data devolvida for a que pedimos: e' o que descarta
         # a interpretacao errada do formato (12-08 lido como 8 de dezembro).
@@ -62,7 +64,8 @@ def cotacoes_do_periodo(inicio: date, fim: date) -> list[dict]:
         url = (f"{PERIODO}?@dataInicial='{inicio.strftime(formato)}'"
                f"&@dataFinal='{fim.strftime(formato)}'&$format=json")
         r = requests.get(url, headers=CABECALHO, timeout=30)
-        r.raise_for_status()
+        if r.status_code != 200:
+            continue
         linhas = _interpreta(r.json())
         if linhas and inicio <= linhas[0]["data"] <= fim:
             return sorted(linhas, key=lambda x: x["data"])
