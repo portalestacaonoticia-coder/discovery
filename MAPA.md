@@ -48,8 +48,13 @@ radar/
 │       └── middleware.js       ← Basic Auth com PAINEL_SENHA
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
-├── wordpress/radar-jsonld.php  ← mu-plugin: imprime o JSON-LD no <head> e ajusta
-│                             max-snippet/max-image-preview
+├── wordpress/
+│   ├── radar-jsonld.php    ← mu-plugin: imprime o JSON-LD no <head> e ajusta
+│   │                         max-snippet/max-image-preview
+│   └── radar-painel.php    ← plugin: painel de acompanhamento DENTRO do wp-admin
+│                             (menu Radar). Le o Supabase via PostgREST; chave fica
+│                             na configuracao do plugin ou em constantes do wp-config.
+│                             Um upload por site; cada site ve os proprios dados.
 ├── saida/                  ← artigos gerados (.md + .jsonld), prontos para o CMS
 └── .github/workflows/
     ├── radar.yml           ← cron do radar, de 30 em 30 min
