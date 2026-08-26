@@ -17,7 +17,7 @@ import requests
 BASE = ("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
         "CotacaoDolarDia(dataCotacao=@dataCotacao)")
 PERIODO = ("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
-           "CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinal=@dataFinal)")
+           "CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)")
 CABECALHO = {"User-Agent": "RadarPautas/1.0 (+contato@exemplo.com.br)"}
 
 
@@ -61,8 +61,10 @@ def cotacao_do_dia(dia: date) -> dict:
 def cotacoes_do_periodo(inicio: date, fim: date) -> list[dict]:
     """Serie do periodo — usada para carregar o historico inicial da base."""
     for formato in ("%m-%d-%Y", "%d-%m-%Y"):
+        # $top alto porque a Olinda pagina em 100 linhas por padrao — sem ele,
+        # um historico maior que ~4 meses viria truncado em silencio.
         url = (f"{PERIODO}?@dataInicial='{inicio.strftime(formato)}'"
-               f"&@dataFinal='{fim.strftime(formato)}'&$format=json")
+               f"&@dataFinalCotacao='{fim.strftime(formato)}'&$format=json&$top=1000")
         r = requests.get(url, headers=CABECALHO, timeout=30)
         if r.status_code != 200:
             continue
