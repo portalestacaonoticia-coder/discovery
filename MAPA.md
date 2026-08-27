@@ -33,6 +33,12 @@ radar/
 │   │                         de data da Olinda.
 │   ├── gerador_dolar.py    ← monta o artigo diario de cotacao a partir da serie.
 │   │                         NAO explica causa: so' escreve o que e' derivavel do dado.
+│   ├── gerador_ancora.py   ← guias de servico evergreen (textos ANCORA do doll):
+│   │                         "quanto custa comprar dolar", "dolar para viagem".
+│   │                         Template determinístico, ancorado na base + IOF.
+│   ├── ancoras.py          ← entrypoint que gera e publica os textos ancora
+│   │                         (idempotente: referencia fixa por guia, atualiza a
+│   │                         mesma pagina). `python -m radar.ancoras`
 │   ├── dolar_diario.py     ← entrypoint da pauta de calendario do dolar:
 │   │                         coleta -> base -> portoes -> artigo -> saida/ + banco
 │   ├── configurar_wp.py    ← configuracao inicial de um WP novo (titulo, fuso,
