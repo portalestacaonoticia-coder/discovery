@@ -115,7 +115,12 @@ def main() -> int:
         })
         raise
     artigo = monta(hoje, serie, site)
-    status = "publicada" if (liberado and site["publicacao"]["calendario"] == "auto") else "rascunho"
+    pode_publicar = liberado and site["publicacao"]["calendario"] == "auto"
+    # No banco o artigo NASCE 'aprovada' (passou nos portoes, vai ao ar) ou
+    # 'rascunho'. So' vira 'publicada' quando o WordPress confirmar, no
+    # marca_publicado — senao uma falha de publicacao deixaria o status
+    # mentindo (era o bug: 'publicada' sem nunca ter ido ao ar).
+    status = "aprovada" if pode_publicar else "rascunho"
 
     SAIDA.mkdir(exist_ok=True)
     base_nome = f"{SITE}-cotacao-{hoje['data'].isoformat()}"
@@ -136,16 +141,22 @@ def main() -> int:
         from .publicador_wp import ErroWordPress, publica
         existente = banco.artigo_existente(SITE, "calendario", hoje["data"].isoformat())
         try:
+            # O publicador so' entende 'publicada' (vira publish no WP) ou o
+            # resto (draft). O status do BANCO e' outra coisa — por isso a
+            # decisao de publicar vai explicita, nao o status persistido.
             resultado = publica({
                 "titulo": artigo["titulo"], "corpo_md": artigo["markdown"],
                 "resumo": artigo["resumo"], "jsonld": artigo["jsonld"],
-                "status": status, "hub": "cotacao",
+                "status": "publicada" if pode_publicar else "rascunho",
+                "hub": "cotacao",
                 "wp_post_id": (existente or {}).get("wp_post_id"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
                 "senha_app": os.environ[wp["senha_env"]]})
+            # Confirmado no WP: agora sim o status reflete a realidade.
+            status = "publicada" if pode_publicar else "rascunho"
             banco.marca_publicado(SITE, "calendario", hoje["data"].isoformat(),
-                                  resultado["id"], resultado.get("link"))
+                                  resultado["id"], resultado.get("link"), status)
             link = resultado.get("link")
         except (ErroWordPress, KeyError) as erro:
             # Falha de publicacao nao pode perder o artigo: ele ja' esta' no banco

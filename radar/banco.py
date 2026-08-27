@@ -115,12 +115,16 @@ class Banco:
         return r.data[0] if r.data else None
 
     def marca_publicado(self, site: str, tipo: str, referencia: str,
-                        post_id: int, url: str | None) -> None:
+                        post_id: int, url: str | None,
+                        status: str = "publicada") -> None:
+        """So' aqui o artigo vira 'publicada': o status acompanha o que o
+        WordPress confirmou. Sem esse passo, uma falha de publicacao deixava
+        o artigo 'publicada' no banco sem nunca ter ido ao ar."""
         if self.seco:
             print(f"  [seco] publicado no WP: post {post_id} -> {url}")
             return
         (self.cliente.table("artigos")
-         .update({"wp_post_id": post_id, "url_publicada": url})
+         .update({"wp_post_id": post_id, "url_publicada": url, "status": status})
          .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
 
     # -- selecao automatica de pautas ---------------------------------------
