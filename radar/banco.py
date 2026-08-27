@@ -182,6 +182,51 @@ class Banco:
                   "horario_sugerido": horario_iso})
          .eq("id", pauta_id).execute())
 
+    # -- satelites (artigos de pauta que linkam para os ancora) --------------
+
+    def ancora_do_hub(self, site: str, hub: str) -> str | None:
+        """URL do texto ancora publicado deste hub — o destino do satelite."""
+        if self.seco or not self.cliente:
+            return None
+        r = (self.cliente.table("artigos").select("url_publicada")
+             .eq("site", site).eq("tipo", "ancora").eq("hub", hub)
+             .eq("status", "publicada").not_.is_("url_publicada", "null")
+             .limit(1).execute())
+        return r.data[0]["url_publicada"] if r.data else None
+
+    def pautas_para_satelite(self, site: str, inicio_dia_iso: str,
+                             por_hub: int = 1) -> list[dict]:
+        """Pautas selecionadas hoje, com dado proprio, que ainda nao viraram
+        satelite — no maximo `por_hub` por hub, a de maior pontuacao primeiro.
+        O teto por hub e' o que segura o conteudo em escala: um satelite de
+        cambio por hub por dia, nao oito iguais."""
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("pautas")
+             .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,pontuacao,"
+                     "itens(titulo,url,veiculo)")
+             .eq("site", site).eq("status", "aprovada")
+             .not_.is_("dado_proprio", "null")
+             .gte("selecionada_em", inicio_dia_iso)
+             .order("pontuacao", desc=True).execute())
+        escolhidas, por = [], {}
+        for p in (r.data or []):
+            h = p.get("hub") or "_"
+            if por.get(h, 0) >= por_hub:
+                continue
+            por[h] = por.get(h, 0) + 1
+            escolhidas.append(p)
+        return escolhidas
+
+    def marca_pauta_publicada(self, pauta_id: int) -> None:
+        """A pauta vira 'publicada' — some da fila de satelites e nao se
+        repete. A URL do post fica no artigo (tabela artigos), nao aqui."""
+        if self.seco:
+            print(f"  [seco] pauta {pauta_id} -> publicada")
+            return
+        (self.cliente.table("pautas").update({"status": "publicada"})
+         .eq("id", pauta_id).execute())
+
     # -- execucoes -----------------------------------------------------------
 
     def registra_execucao(self, registro: dict) -> None:

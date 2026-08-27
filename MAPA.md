@@ -39,6 +39,11 @@ radar/
 │   ├── ancoras.py          ← entrypoint que gera e publica os textos ancora
 │   │                         (idempotente: referencia fixa por guia, atualiza a
 │   │                         mesma pagina). `python -m radar.ancoras`
+│   ├── gerador_satelite.py ← artigo-satelite: gancho da noticia CITADO+atribuido
+│   │                         a fonte + dado proprio + link para o ancora do hub.
+│   │                         Template (sem LLM) — sai repetitivo no mesmo hub.
+│   ├── satelites.py         ← entrypoint dos satelites: pautas com dado proprio,
+│   │                         no maximo 1 por hub/dia. `python -m radar.satelites`
 │   ├── dolar_diario.py     ← entrypoint da pauta de calendario do dolar:
 │   │                         coleta -> base -> portoes -> artigo -> saida/ + banco
 │   ├── configurar_wp.py    ← configuracao inicial de um WP novo (titulo, fuso,
