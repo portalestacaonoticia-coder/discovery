@@ -1,4 +1,4 @@
-name: dolar-diario
+name: dolar-diario-e-ancoras
 
 on:
   schedule:
@@ -20,6 +20,17 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m radar.dolar_diario
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
+          WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+      # Os textos ancora (guias de servico) atualizam os numeros do dia na
+      # mesma janela. if: always() — atualizam mesmo se o artigo do dia falhar,
+      # porque sao paginas independentes.
+      - run: python -m radar.ancoras
+        if: always()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
