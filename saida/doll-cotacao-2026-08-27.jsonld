@@ -1,0 +1,17 @@
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": "Dólar fecha em R$ 5,1642 nesta quinta-feira (27/08), alta de 0,07%",
+  "datePublished": "2026-08-27T16:29:33-03:00",
+  "dateModified": "2026-08-27T16:29:33-03:00",
+  "inLanguage": "pt-BR",
+  "isAccessibleForFree": true,
+  "publisher": {
+    "@type": "NewsMediaOrganization",
+    "name": "Doll — Dolar e Cambio"
+  },
+  "about": {
+    "@type": "Thing",
+    "name": "Cotação do dólar"
+  }
+}

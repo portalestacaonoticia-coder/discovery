@@ -54,17 +54,10 @@ radar/
 │   │                         aplicativo). Idempotente: reroda = atualiza o post.
 │   ├── alerta.py           ← webhook do Discord (silencioso se nao configurado)
 │   └── principal.py        ← orquestra tudo; e' o entrypoint (`python -m radar.principal`)
-├── painel/                 ← painel web (Next.js) de acompanhamento: fila de pautas,
-│   │                         cotacoes com grafico, artigos e execucoes dos crons.
-│   │                         Le o Supabase SO no servidor (service key; RLS trancado)
-│   │                         e protege o acesso com senha unica (PAINEL_SENHA).
-│   └── src/
-│       ├── lib/supabase.js     ← UNICO ponto de acesso ao banco (espelho do banco.py)
-│       ├── lib/consultas.js    ← todas as leituras do painel
-│       ├── features/           ← pautas, cotacoes (grafico SVG), artigos, execucoes
-│       ├── components/Selo.js  ← selo de status (cor sempre com rotulo)
-│       ├── app/                ← / (visao geral por site) e /[site] (detalhe)
-│       └── middleware.js       ← Basic Auth com PAINEL_SENHA
+├── radar-web/              ← app proprio da INTERFACE do radar (radar.tihee.com.br):
+│                             Vite+React+shadcn, reusa o Supabase Auth do conteudo
+│                             e le os dados via api/radar.ts. Ver radar-web/MAPA.md.
+│                             (Substituiu o painel Next.js descartado.)
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
 ├── testar_selecao.py       ← teste offline da selecao automatica de pautas
