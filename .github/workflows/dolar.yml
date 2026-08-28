@@ -1,4 +1,4 @@
-name: dolar-diario-e-ancoras
+name: doll-diaria (dolar, ancoras e satelites)
 
 on:
   schedule:
@@ -37,6 +37,18 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+      # Satelites: as notas de atualidade que puxam para os ancora. Escritos
+      # pelo Claude (ANTHROPIC_API_KEY), teto de 1 por hub por dia. if: always()
+      # — dependem das pautas ja selecionadas, nao dos passos acima.
+      - run: python -m radar.satelites
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
+          WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
