@@ -36,8 +36,22 @@ dia, seleção automática, critérios editáveis, fila, execuções e artigos.
   lugar, autonomia. O motor Python NÃO migrou (funciona, seria caro/arriscado).
 - Auth reusa o Supabase do conteudo — mesmas contas, sem criar login novo.
 
+## Deploy (Vercel)
+
+- Projeto **radar-tihee** (time tihee), repo discovery, Root Directory
+  `radar-web`, preset Vite. Push na main = deploy.
+- Env: o projeto tem os nomes do motor (SUPABASE_URL, SUPABASE_SERVICE_KEY,
+  herdados do .env.example na criação) — a função aceita esses OU RADAR_*.
+  Auth do front tem fallback literal (chaves públicas), dispensa VITE_*.
+- Domínio: radar.tihee.com.br (CNAME `radar` → 50e25864eb4d8daf
+  .vercel-dns-016.com, proxy OFF, na zona Cloudflare do tihee.com.br —
+  que vive em OUTRA conta Cloudflare, não na Filipe.otavio@tihee).
+- Pegadinhas que já mordi: vercel.json com BOM (PS 5.1) = "Invalid
+  vercel.json"; sem Root Directory a Vercel builda o Python da raiz.
+
 ## Estado atual
 
-- 28/08/2026: app criado a partir do conteudotihee, build OK, roda local
-  (tela de login + Radar). Pendente: deploy na Vercel + domínio
-  radar.tihee.com.br, e mover/aposentar a aba Radar do conteudo depois.
+- 28/08/2026: app NO AR em radar.tihee.com.br (deploy + domínio ok).
+  Pendente: aposentar a aba Radar do conteudo.tihee (decisão do Filipe) e
+  limpar env vars não usadas do projeto Vercel (DISCORD_WEBHOOK,
+  ANTHROPIC_API_KEY, WP_DOLL_* — a função não as usa).
