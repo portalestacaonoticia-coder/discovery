@@ -32,6 +32,13 @@ const CONTEUDO_URL = process.env.VITE_SUPABASE_URL || "https://eprnygwxuysygloer
 const CONTEUDO_ANON = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwcm55Z3d4dXlzeWdsb2VyYmF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzOTgyODUsImV4cCI6MjA4OTk3NDI4NX0.hAXbTBbp2iWnb-vbKRCOTO15HkdCpwGOm_3R_xQGSn4";
 
+// Supabase do RADAR (dados). Aceita os dois pares de nomes: RADAR_SUPABASE_*
+// (padrao deste app) ou SUPABASE_* (os nomes do motor Python, que o projeto
+// Vercel pode ter herdado do .env.example do repo).
+const RADAR_URL = process.env.RADAR_SUPABASE_URL || process.env.SUPABASE_URL || "";
+const RADAR_CHAVE = process.env.RADAR_SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY || "";
+
 const FUSO = "America/Sao_Paulo";
 
 async function sessaoValida(token: string): Promise<boolean> {
@@ -51,12 +58,11 @@ interface Leitura {
 }
 
 function cabecalhosRadar(extra: Record<string, string> = {}): Record<string, string> {
-  const chave = process.env.RADAR_SUPABASE_SERVICE_KEY || "";
-  return { apikey: chave, Authorization: `Bearer ${chave}`, ...extra };
+  return { apikey: RADAR_CHAVE, Authorization: `Bearer ${RADAR_CHAVE}`, ...extra };
 }
 
 async function leRadar(recurso: string, query: string, contar = false): Promise<Leitura> {
-  const url = `${process.env.RADAR_SUPABASE_URL}/rest/v1/${recurso}?${query}`;
+  const url = `${RADAR_URL}/rest/v1/${recurso}?${query}`;
   try {
     const resposta = await fetch(url, {
       headers: cabecalhosRadar(contar ? { Prefer: "count=exact" } : {}),
@@ -98,7 +104,7 @@ async function mudaStatusPauta(res: Resposta, corpo: unknown) {
     res.status(400).json({ erro: "pauta_id e status (aprovada | descartada | nova) são obrigatórios" });
     return;
   }
-  const resposta = await fetch(`${process.env.RADAR_SUPABASE_URL}/rest/v1/pautas?id=eq.${id}`, {
+  const resposta = await fetch(`${RADAR_URL}/rest/v1/pautas?id=eq.${id}`, {
     method: "PATCH",
     headers: cabecalhosRadar({ "Content-Type": "application/json", Prefer: "return=representation" }),
     body: JSON.stringify({ status }),
@@ -182,7 +188,7 @@ async function salvaMeta(res: Resposta, corpo: unknown) {
   }
 
   // upsert por site; colunas fora da carga ficam como estão
-  const resposta = await fetch(`${process.env.RADAR_SUPABASE_URL}/rest/v1/metas?on_conflict=site`, {
+  const resposta = await fetch(`${RADAR_URL}/rest/v1/metas?on_conflict=site`, {
     method: "POST",
     headers: cabecalhosRadar({
       "Content-Type": "application/json",
@@ -205,9 +211,9 @@ export default async function handler(req: Pedido, res: Resposta) {
     return;
   }
 
-  if (!process.env.RADAR_SUPABASE_URL || !process.env.RADAR_SUPABASE_SERVICE_KEY) {
+  if (!RADAR_URL || !RADAR_CHAVE) {
     res.status(500).json({
-      erro: "faltam RADAR_SUPABASE_URL e RADAR_SUPABASE_SERVICE_KEY nas variáveis de ambiente da Vercel",
+      erro: "faltam RADAR_SUPABASE_URL/SUPABASE_URL e a service key nas variáveis de ambiente da Vercel",
     });
     return;
   }
