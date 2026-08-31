@@ -23,6 +23,11 @@ dia, seleção automática, critérios editáveis, fila, execuções e artigos.
 ## Estrutura
 
 - `api/radar.ts` — função serverless: valida a sessão e lê/escreve no radar.
+- `api/tick-radar.ts` / `api/tick-dolar.ts` (+ `_despertador.ts`) — o RELÓGIO:
+  crons da Vercel (vercel.json) que dão workflow_dispatch no GitHub nos
+  horários certos (radar */30; dólar 14h16/15h20 SP úteis). Env:
+  RELOGIO_GITHUB_TOKEN (PAT Actions r&w só no discovery), CRON_SECRET opc.
+  Motivo: o cron do GitHub em repo privado atrasa horas.
 - `src/App.tsx` — só duas rotas: /auth (login) e / (Radar, protegida).
 - `src/pages/Radar.tsx` — a tela inteira (resumo, seleção, critérios, fila...).
 - `src/pages/Auth.tsx` — login (Supabase Auth do conteudo).
