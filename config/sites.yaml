@@ -118,3 +118,9 @@ sites:
     publicacao:
       calendario: auto
       radar: rascunho
+      # Regra do piso (31/08/2026): SEMPRE sai post, obrigatoriamente — fim de
+      # semana incluso. Depois da hora limite, se o dia ainda esta' zerado, a
+      # esteira publica a nota-reserva do dia (100% da base propria).
+      piso:
+        minimo: 1        # posts/dia abaixo dos quais a reserva age
+        apos_hora: 17    # hora de Sao Paulo a partir da qual o piso e' cobrado

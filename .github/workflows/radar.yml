@@ -35,3 +35,15 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+      # Piso de publicacao: SEMPRE sai post. Depois da hora limite, se o dia
+      # esta' zerado, publica a nota-reserva (100% da base). Quase sempre e'
+      # um nao-fazer barato — conta os posts e sai.
+      - run: python -m radar.reserva
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
+          WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
