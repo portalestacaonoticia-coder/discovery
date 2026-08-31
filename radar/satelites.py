@@ -35,8 +35,9 @@ def main() -> int:
     p.add_argument("--seco", action="store_true", help="nao grava nem publica")
     p.add_argument("--sem-publicar", action="store_true",
                    help="gera e grava, mas nao manda para o WordPress")
-    p.add_argument("--por-hub", type=int, default=1,
-                   help="teto de satelites por hub por dia (padrao 1)")
+    p.add_argument("--por-hub", type=int, default=0,
+                   help="teto de satelites por hub por dia (0 = pega dos "
+                        "criterios do site; padrao la' e' 2)")
     args = p.parse_args()
 
     site = carrega_sites()[SITE]
@@ -49,28 +50,48 @@ def main() -> int:
         print("serie de cotacoes insuficiente")
         return 1
 
-    inicio_dia = inicio_do_dia_sp()
-    candidatas = leitor.pautas_para_satelite(SITE, inicio_dia, por_hub=args.por_hub)
+    # O teto por hub e' criterio editorial — mora em metas.criterios (a tela
+    # do radar edita), como os pesos da selecao. O Filipe governa o criterio.
+    por_hub = args.por_hub
+    if not por_hub:
+        meta = leitor.meta_do_site(SITE) or {}
+        por_hub = int((meta.get("criterios") or {}).get("satelites_por_hub") or 2)
 
-    # Respeita o cronograma da selecao: pauta com horario_sugerido no futuro
-    # espera a vez (e' assim que a fixa "generica" sai de manha no slot dela e
-    # nao no fim da tarde). Sem horario = sai ja (quente).
+    inicio_dia = inicio_do_dia_sp()
+    candidatas, por = leitor.pautas_para_satelite(SITE, inicio_dia)
+
+    # A vaga do hub e' de quem esta' MADURA (horario vencido ou sem horario),
+    # na ordem de pontuacao; pauta futura NUNCA reserva vaga — ela concorre
+    # quando o slot dela chegar. Licao de 31/08: a #1093 (slot 17h) segurou a
+    # vaga de indicadores e prendeu a #1117 (slot 11h) o dia inteiro.
     agora = datetime.now(FUSO_SP)
-    pautas = []
+    pautas, em_espera = [], 0
     for p in candidatas:
         h = p.get("horario_sugerido")
         if h:
             try:
-                quando = datetime.fromisoformat(h)
-                if quando > agora:
+                if datetime.fromisoformat(h) > agora:
+                    em_espera += 1
                     print(f"[espera] pauta {p['id']} agendada para "
-                          f"{quando.astimezone(FUSO_SP):%H:%M}")
+                          f"{datetime.fromisoformat(h).astimezone(FUSO_SP):%H:%M}")
                     continue
             except ValueError:
                 pass
+        hub = p.get("hub") or "_"
+        if por.get(hub, 0) >= por_hub:
+            continue
+        por[hub] = por.get(hub, 0) + 1
         pautas.append(p)
     if not pautas:
-        print("nenhuma pauta com dado proprio no horario para virar satelite")
+        print(f"nenhuma pauta madura para virar satelite ({em_espera} em espera)")
+        # Registra mesmo sem publicar: o fluxo invisivel na telemetria custou
+        # uma manha de diagnostico em 31/08.
+        if not args.seco:
+            banco.registra_execucao({
+                "fluxo": "satelites", "site": SITE, "status": "ok",
+                "resumo": f"0 no ar ({em_espera} aguardando slot)",
+                "inicio": inicio.isoformat(),
+            })
         return 0
 
     pode_publicar = site["publicacao"].get("radar") == "auto" or \
@@ -133,7 +154,9 @@ def main() -> int:
     elif not args.seco:
         banco.registra_execucao({
             "fluxo": "satelites", "site": SITE, "status": "ok",
-            "resumo": f"{publicados} satelites no ar", "inicio": inicio.isoformat(),
+            "resumo": f"{publicados} satelites no ar"
+                      + (f" ({em_espera} aguardando slot)" if em_espera else ""),
+            "inicio": inicio.isoformat(),
         })
         if publicados:
             avisa(f"**doll — satelites** {publicados} no ar")

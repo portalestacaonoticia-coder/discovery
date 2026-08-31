@@ -194,14 +194,15 @@ class Banco:
              .limit(1).execute())
         return r.data[0]["url_publicada"] if r.data else None
 
-    def pautas_para_satelite(self, site: str, inicio_dia_iso: str,
-                             por_hub: int = 1) -> list[dict]:
-        """Pautas selecionadas hoje, com dado proprio, que ainda nao viraram
-        satelite — no maximo `por_hub` por hub NO DIA, a de maior pontuacao
-        primeiro. O teto conta tambem o que JA saiu (status publicada): o
-        fluxo roda varias vezes por dia e nao pode empilhar satelites iguais."""
+    def pautas_para_satelite(self, site: str,
+                             inicio_dia_iso: str) -> tuple[list[dict], dict]:
+        """Devolve (candidatas, publicadas_por_hub): as pautas do dia com dado
+        proprio ainda aprovadas, por pontuacao, e quantas JA sairam por hub.
+        A POLITICA (teto por hub, horario, maduras primeiro) fica no fluxo —
+        aqui e' so' leitura. Licao de 31/08: aplicar o teto aqui, antes do
+        filtro de horario, deixava pauta futura roubar a vaga da madura."""
         if self.seco or not self.cliente:
-            return []
+            return [], {}
         ja = (self.cliente.table("pautas").select("hub")
               .eq("site", site).eq("status", "publicada")
               .gte("selecionada_em", inicio_dia_iso).execute())
@@ -216,14 +217,7 @@ class Banco:
              .not_.is_("dado_proprio", "null")
              .gte("selecionada_em", inicio_dia_iso)
              .order("pontuacao", desc=True).execute())
-        escolhidas = []
-        for p in (r.data or []):
-            h = p.get("hub") or "_"
-            if por.get(h, 0) >= por_hub:
-                continue
-            por[h] = por.get(h, 0) + 1
-            escolhidas.append(p)
-        return escolhidas
+        return list(r.data or []), por
 
     def marca_pauta_publicada(self, pauta_id: int) -> None:
         """A pauta vira 'publicada' — some da fila de satelites e nao se
