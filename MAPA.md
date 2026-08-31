@@ -45,7 +45,11 @@ radar/
 │   │                         (titulos unicos, fato atribuido a fonte, dado proprio,
 │   │                         link ancora); template como fallback.
 │   ├── satelites.py         ← entrypoint dos satelites: pautas com dado proprio,
-│   │                         no maximo 1 por hub/dia. `python -m radar.satelites`
+│   │                         no maximo 1 por hub/dia, respeitando horario_sugerido.
+│   │                         Roda no cron do radar (30min, todos os dias).
+│   ├── reserva.py           ← PISO de publicacao (regra: sempre sai post). Depois
+│   │                         das 17h SP, dia zerado = publica a nota-reserva
+│   │                         (100% da base). Config: sites.yaml publicacao.piso.
 │   ├── dolar_diario.py     ← entrypoint da pauta de calendario do dolar:
 │   │                         coleta -> base -> portoes -> artigo -> saida/ + banco
 │   ├── configurar_wp.py    ← configuracao inicial de um WP novo (titulo, fuso,
