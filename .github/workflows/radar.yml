@@ -22,3 +22,16 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Satelites saem AQUI (a cada ciclo, todos os dias, fim de semana
+      # incluso), respeitando o horario_sugerido de cada pauta: quente sai no
+      # proximo ciclo, fixa espera o slot dela. Idempotente + teto por hub/dia,
+      # entao rodar de 30 em 30 min nao empilha posts.
+      - run: python -m radar.satelites
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
+          WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}

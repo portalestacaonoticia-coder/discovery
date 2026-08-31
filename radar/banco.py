@@ -197,19 +197,26 @@ class Banco:
     def pautas_para_satelite(self, site: str, inicio_dia_iso: str,
                              por_hub: int = 1) -> list[dict]:
         """Pautas selecionadas hoje, com dado proprio, que ainda nao viraram
-        satelite — no maximo `por_hub` por hub, a de maior pontuacao primeiro.
-        O teto por hub e' o que segura o conteudo em escala: um satelite de
-        cambio por hub por dia, nao oito iguais."""
+        satelite — no maximo `por_hub` por hub NO DIA, a de maior pontuacao
+        primeiro. O teto conta tambem o que JA saiu (status publicada): o
+        fluxo roda varias vezes por dia e nao pode empilhar satelites iguais."""
         if self.seco or not self.cliente:
             return []
+        ja = (self.cliente.table("pautas").select("hub")
+              .eq("site", site).eq("status", "publicada")
+              .gte("selecionada_em", inicio_dia_iso).execute())
+        por: dict[str, int] = {}
+        for p in (ja.data or []):
+            h = p.get("hub") or "_"
+            por[h] = por.get(h, 0) + 1
         r = (self.cliente.table("pautas")
              .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,pontuacao,"
-                     "itens(titulo,url,veiculo)")
+                     "horario_sugerido,itens(titulo,url,veiculo)")
              .eq("site", site).eq("status", "aprovada")
              .not_.is_("dado_proprio", "null")
              .gte("selecionada_em", inicio_dia_iso)
              .order("pontuacao", desc=True).execute())
-        escolhidas, por = [], {}
+        escolhidas = []
         for p in (r.data or []):
             h = p.get("hub") or "_"
             if por.get(h, 0) >= por_hub:

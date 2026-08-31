@@ -28,6 +28,14 @@ SITE = "doll"
 FAIXA_PLAUSIVEL = (1.0, 20.0)   # BRL por USD: fora disso, o dado esta' corrompido
 SALTO_MAXIMO_PCT = 5.0          # variacao diaria acima disso pede olho humano
 SAIDA = RAIZ / "saida"
+FUSO_SP = timezone(timedelta(hours=-3))
+
+
+def hoje_sp() -> date:
+    """A data no fuso de Sao Paulo. NUNCA date.today(): no runner do GitHub o
+    relogio e' UTC, e um cron atrasado para depois das 21h de SP viraria o dia
+    seguinte — foi assim que o artigo de 28/08 procurou a PTAX de 29/08."""
+    return datetime.now(FUSO_SP).date()
 
 
 def portoes(hoje: dict, serie: list[dict]) -> tuple[bool, str]:
@@ -37,7 +45,7 @@ def portoes(hoje: dict, serie: list[dict]) -> tuple[bool, str]:
         raise ValueError(f"PTAX fora da faixa plausivel: {hoje['venda']}")
     if hoje["compra"] > hoje["venda"]:
         raise ValueError("compra maior que venda: dado inconsistente")
-    if hoje["data"] > date.today():
+    if hoje["data"] > hoje_sp():
         raise ValueError("data da cotacao no futuro")
 
     if len(serie) >= 2:
@@ -51,7 +59,7 @@ def portoes(hoje: dict, serie: list[dict]) -> tuple[bool, str]:
 
 
 def carrega_historico(banco: Banco, dias: int) -> int:
-    fim = date.today()
+    fim = hoje_sp()
     inicio = fim - timedelta(days=dias)
     linhas = cotacoes_do_periodo(inicio, fim)
     for linha in linhas:
@@ -81,7 +89,7 @@ def main() -> int:
         print(f"{total} cotacoes carregadas na base")
         return 0
 
-    dia = date.fromisoformat(args.data) if args.data else date.today()
+    dia = date.fromisoformat(args.data) if args.data else hoje_sp()
     inicio_exec = datetime.now(timezone.utc)
 
     try:

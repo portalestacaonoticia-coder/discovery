@@ -50,9 +50,27 @@ def main() -> int:
         return 1
 
     inicio_dia = inicio_do_dia_sp()
-    pautas = leitor.pautas_para_satelite(SITE, inicio_dia, por_hub=args.por_hub)
+    candidatas = leitor.pautas_para_satelite(SITE, inicio_dia, por_hub=args.por_hub)
+
+    # Respeita o cronograma da selecao: pauta com horario_sugerido no futuro
+    # espera a vez (e' assim que a fixa "generica" sai de manha no slot dela e
+    # nao no fim da tarde). Sem horario = sai ja (quente).
+    agora = datetime.now(FUSO_SP)
+    pautas = []
+    for p in candidatas:
+        h = p.get("horario_sugerido")
+        if h:
+            try:
+                quando = datetime.fromisoformat(h)
+                if quando > agora:
+                    print(f"[espera] pauta {p['id']} agendada para "
+                          f"{quando.astimezone(FUSO_SP):%H:%M}")
+                    continue
+            except ValueError:
+                pass
+        pautas.append(p)
     if not pautas:
-        print("nenhuma pauta com dado proprio para virar satelite hoje")
+        print("nenhuma pauta com dado proprio no horario para virar satelite")
         return 0
 
     pode_publicar = site["publicacao"].get("radar") == "auto" or \

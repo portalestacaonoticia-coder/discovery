@@ -1,11 +1,15 @@
-name: doll-diaria (dolar, ancoras e satelites)
+name: doll-diaria (dolar e ancoras)
 
 on:
   schedule:
-    # 17:10 UTC = 14:10 em Brasilia (UTC-3). A PTAX de fechamento sai por volta
-    # das 13h10; a folga de uma hora cobre atraso do boletim.
-    # Atencao ao horario de verao: se voltar a existir, revisar este cron.
-    - cron: "10 17 * * 1-5"
+    # O GitHub atrasa cron de repo privado em ATE' HORAS (26/08: +2h; 27 e
+    # 28/08: +8h). Tres tentativas com minuto impar aumentam a chance de uma
+    # rodar cedo; o fluxo e' idempotente, entao rodar 3x nao duplica nada.
+    # 17:16 UTC = 14:16 SP (PTAX de fechamento sai ~13h10 SP).
+    # Atencao ao horario de verao: se voltar a existir, revisar estes crons.
+    - cron: "16 17 * * 1-5"
+    - cron: "46 18 * * 1-5"
+    - cron: "26 20 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -37,18 +41,8 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
-      # Satelites: as notas de atualidade que puxam para os ancora. Escritos
-      # pelo Claude (ANTHROPIC_API_KEY), teto de 1 por hub por dia. if: always()
-      # — dependem das pautas ja selecionadas, nao dos passos acima.
-      - run: python -m radar.satelites
-        if: always()
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
-          WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # (Os satelites moraram aqui ate 28/08; foram para o radar.yml — rodam a
+      # cada 30 min, todos os dias, respeitando o horario de cada pauta.)
       - uses: actions/upload-artifact@v4
         if: always()
         with:

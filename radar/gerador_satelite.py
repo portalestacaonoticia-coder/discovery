@@ -15,21 +15,28 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from . import llm
 from .gerador_dolar import DIAS, MESES, brl, pct, _rumo
 
+FUSO_SP = timezone(timedelta(hours=-3))
+
+
+def _data_extenso(d) -> str:
+    return f"{DIAS[d.weekday()]}, {d.day} de {MESES[d.month - 1]} de {d.year}"
+
 # Por hub: (titulo do satelite, texto do link ancora). Titulos distintos por
-# hub para dois satelites do dia nao saírem com a mesma cara.
+# hub para dois satelites do dia nao saírem com a mesma cara. {quando} vira
+# "nesta sexta-feira" ou "no fechamento de sexta-feira" conforme o dia real.
 ENQUADRE_HUB = {
-    "cotacao": ("Dólar a {v} nesta {dia}: cotação, variação e quanto custa comprar",
+    "cotacao": ("Dólar a {v} {quando}: cotação, variação e quanto custa comprar",
                 "quanto custa comprar dólar hoje"),
     "viagem": ("Dólar a {v}: o que muda para quem vai viajar",
                "quanto custa o dólar para a sua viagem"),
-    "politica-monetaria": ("Dólar a {v} nesta {dia}: o câmbio do dia em números",
+    "politica-monetaria": ("Dólar a {v} {quando}: o câmbio do dia em números",
                            "quanto custa comprar dólar hoje"),
-    "indicadores": ("Dólar a {v} nesta {dia}: o número e o que ele mostra",
+    "indicadores": ("Dólar a {v} {quando}: o número e o que ele mostra",
                     "quanto custa comprar dólar hoje"),
 }
 
@@ -110,9 +117,11 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         f"Fonte: {veiculo or 'imprensa (veiculo nao identificado)'}"
         + (f" — link: {fonte_url}" if fonte_url else "") + "\n"
         f"Dado proprio (nossa base, PTAX do Banco Central): {dado}.\n"
-        f"Data de hoje (use exatamente esta, nao invente o dia da semana): "
-        f"{DIAS[n['data'].weekday()]}, {n['data'].day} de "
-        f"{MESES[n['data'].month - 1]} de {n['data'].year}.\n"
+        f"HOJE e': {_data_extenso(datetime.now(FUSO_SP).date())}.\n"
+        f"A cotacao e' do PREGAO de: {_data_extenso(n['data'])}.\n"
+        "Se hoje e o pregao forem dias DIFERENTES (noite, fim de semana), "
+        "deixe isso claro no texto (ex.: 'no fechamento de sexta-feira') e "
+        "NUNCA chame o dia do pregao de hoje.\n"
         f"Pagina-guia para linkar no fecho: "
         + (f"[{servico}]({url_ancora})" if url_ancora
            else "(nenhuma disponivel — feche sem link)") + "\n\n"
@@ -172,7 +181,12 @@ def _monta_template(pauta: dict, serie: list[dict], url_ancora: str | None,
     hub = pauta.get("hub") or "cotacao"
     molde_titulo, servico = ENQUADRE_HUB.get(hub, ENQUADRE_HUB["cotacao"])
 
-    titulo = molde_titulo.format(v=brl(venda, 4), dia=DIAS[d.weekday()])[:110]
+    # "nesta sexta-feira" so' quando o pregao E' hoje; de noite ou no fim de
+    # semana o dado e' do fechamento anterior e o texto precisa dizer isso.
+    mesmo_dia = d == datetime.now(FUSO_SP).date()
+    quando = (f"nesta {DIAS[d.weekday()]}" if mesmo_dia
+              else f"no fechamento de {DIAS[d.weekday()]}")
+    titulo = molde_titulo.format(v=brl(venda, 4), quando=quando)[:110]
 
     item = pauta.get("itens") or {}
     veiculo = _veiculo_limpo(item)
@@ -182,13 +196,12 @@ def _monta_template(pauta: dict, serie: list[dict], url_ancora: str | None,
     # 1. o gancho, CITADO e atribuido — nunca afirmado como nosso
     if manchete and fonte_url:
         atrib = (f"a {veiculo}" if veiculo else "a imprensa especializada")
-        gancho = (f"O dólar voltou ao noticiário: {atrib} destacou nesta "
-                  f"{DIAS[d.weekday()]} a manchete “{manchete}” "
-                  f"([leia na fonte]({fonte_url})). A checagem do fato é da "
-                  f"publicação de origem; aqui, o que trazemos é o número.")
+        gancho = (f"O dólar voltou ao noticiário: {atrib} destacou a manchete "
+                  f"“{manchete}” ([leia na fonte]({fonte_url})). A checagem do "
+                  f"fato é da publicação de origem; aqui, o que trazemos é o "
+                  f"número {quando.replace('nesta', 'desta')}.")
     else:
-        gancho = (f"O dólar segue no centro das atenções do mercado nesta "
-                  f"{DIAS[d.weekday()]}.")
+        gancho = "O dólar segue no centro das atenções do mercado."
 
     # 2. o dado PROPRIO — verificavel, da nossa base
     dado = (f"Na PTAX de venda, referência do Banco Central, a moeda está em "
