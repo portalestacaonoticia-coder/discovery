@@ -51,7 +51,7 @@ def main() -> int:
     if len(serie) < 2:
         print("serie de cotacoes insuficiente")
         return 1
-    leia_tambem = leitor.artigos_recentes(SITE)
+    leia_tambem = leitor.artigos_recentes(SITE) + leitor.ancoras_publicadas(SITE)
 
     # O teto por hub e' criterio editorial — mora em metas.criterios (a tela
     # do radar edita), como os pesos da selecao. O Filipe governa o criterio.

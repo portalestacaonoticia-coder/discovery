@@ -211,6 +211,18 @@ class Banco:
              .order("criado_em", desc=True).limit(limite).execute())
         return list(r.data or [])
 
+    def ancoras_publicadas(self, site: str) -> list[dict]:
+        """Os guias evergreen no ar — candidatos permanentes do Leia tambem
+        (sao antigos demais para a lista de recentes, mas sao os textos de
+        maior valor para linkar)."""
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("artigos")
+             .select("titulo,url_publicada,tipo")
+             .eq("site", site).eq("tipo", "ancora").eq("status", "publicada")
+             .not_.is_("url_publicada", "null").execute())
+        return list(r.data or [])
+
     def ancora_do_hub(self, site: str, hub: str) -> str | None:
         """URL do texto ancora publicado deste hub — o destino do satelite."""
         if self.seco or not self.cliente:

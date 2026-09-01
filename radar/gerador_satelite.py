@@ -124,11 +124,13 @@ def _apendices(site: dict, serie: list[dict], leia_tambem: list[dict],
                 uteis.append(a)
                 tipos_vistos.add(tipo)
                 break
+    urls_usadas = {a["url_publicada"] for a in uteis}
     for a in candidatos:      # completa ate 3 se faltou variedade
         if len(uteis) >= 3:
             break
-        if a not in uteis:
+        if a["url_publicada"] not in urls_usadas:
             uteis.append(a)
+            urls_usadas.add(a["url_publicada"])
     uteis = uteis[:3]
     if uteis:
         partes.append("\n\n**Leia também**\n" + "\n".join(
