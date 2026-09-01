@@ -199,6 +199,18 @@ class Banco:
 
     # -- satelites (artigos de pauta que linkam para os ancora) --------------
 
+    def artigos_recentes(self, site: str, limite: int = 12) -> list[dict]:
+        """Ultimos artigos publicados (titulo + url) — viram o bloco
+        Leia tambem dos satelites: profundidade por link interno."""
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("artigos")
+             .select("titulo,url_publicada,tipo")
+             .eq("site", site).eq("status", "publicada")
+             .not_.is_("url_publicada", "null")
+             .order("criado_em", desc=True).limit(limite).execute())
+        return list(r.data or [])
+
     def ancora_do_hub(self, site: str, hub: str) -> str | None:
         """URL do texto ancora publicado deste hub — o destino do satelite."""
         if self.seco or not self.cliente:

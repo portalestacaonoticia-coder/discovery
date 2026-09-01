@@ -45,10 +45,13 @@ def main() -> int:
     leitor = banco if not args.seco else Banco(seco=False)
     inicio = datetime.now(timezone.utc)
 
-    serie = leitor.serie_cotacoes(SITE, dias=30)
+    # Um ano de serie: o texto ganha semana, mes, sequencia e extremos —
+    # profundidade honesta, direto da base (pedido do Filipe, 01/09).
+    serie = leitor.serie_cotacoes(SITE, dias=370)
     if len(serie) < 2:
         print("serie de cotacoes insuficiente")
         return 1
+    leia_tambem = leitor.artigos_recentes(SITE)
 
     # O teto por hub e' criterio editorial — mora em metas.criterios (a tela
     # do radar edita), como os pesos da selecao. O Filipe governa o criterio.
@@ -104,7 +107,7 @@ def main() -> int:
         # de cotacao — todo satelite tem para onde apontar.
         url_ancora = (leitor.ancora_do_hub(SITE, pt.get("hub") or "cotacao")
                       or leitor.ancora_do_hub(SITE, "cotacao"))
-        art = monta(pt, serie, url_ancora, site)
+        art = monta(pt, serie, url_ancora, site, leia_tambem)
         ref = f"satelite-{pt['id']}"
         (SAIDA / f"{SITE}-{ref}.md").write_text(art["markdown"], encoding="utf-8")
 

@@ -56,16 +56,86 @@ def _manchete(item: dict) -> str:
     return t.rsplit(" - ", 1)[0].strip() if " - " in t else t
 
 
+def _variacao(serie: list[dict], pregoes: int) -> float | None:
+    if len(serie) <= pregoes:
+        return None
+    return (serie[-1]["venda"] / serie[-1 - pregoes]["venda"] - 1) * 100
+
+
 def _numeros(serie: list[dict]) -> dict:
-    """Os numeros da base que o corpo (template ou LLM) usa."""
+    """Os numeros da base que o corpo (template ou LLM) usa. A serie pode
+    ter ate um ano — quanto mais longa, mais contexto honesto o texto tem
+    (era a reclamacao de 01/09: posts rasos)."""
     venda = serie[-1]["venda"]
     anterior = serie[-2]["venda"] if len(serie) >= 2 else None
     var_dia = ((venda / anterior - 1) * 100) if anterior else None
-    janela = [l["venda"] for l in serie]
+    ult30 = serie[-22:]
+    janela = [l["venda"] for l in ult30]
     var_janela = ((venda / janela[0] - 1) * 100) if len(janela) >= 2 else None
+
+    # sequencia de pregoes na mesma direcao (0.5 centavo de tolerancia)
+    seq, direcao = 0, 0
+    for i in range(len(serie) - 1, 0, -1):
+        d = serie[i]["venda"] - serie[i - 1]["venda"]
+        passo = 1 if d > 0.005 else -1 if d < -0.005 else 0
+        if seq == 0:
+            direcao = passo
+        if passo == 0 or passo != direcao:
+            break
+        seq += 1
+
+    tudo = [l["venda"] for l in serie]
+    max_ano, min_ano = max(tudo), min(tudo)
+    max_quando = serie[tudo.index(max_ano)]["data"]
+    min_quando = serie[tudo.index(min_ano)]["data"]
     return {"venda": venda, "var_dia": var_dia, "var_janela": var_janela,
             "maior": max(janela), "menor": min(janela), "n": len(janela),
-            "data": serie[-1]["data"]}
+            "var_semana": _variacao(serie, 5), "var_mes": _variacao(serie, 21),
+            "seq": seq, "direcao": direcao,
+            "max_ano": max_ano, "min_ano": min_ano,
+            "max_quando": max_quando, "min_quando": min_quando,
+            "pregoes_serie": len(serie), "data": serie[-1]["data"]}
+
+
+def _apendices(site: dict, serie: list[dict], leia_tambem: list[dict],
+               evitar_url: str | None) -> str:
+    """Blocos determinISTICOS (fora do LLM, zero invencao): a conversao do
+    dia com IOF e os links internos. E' o que da corpo de servico ao post."""
+    venda = serie[-1]["venda"]
+    iof = float((site.get("iof") or {}).get("cartao_credito", 3.5))
+    linhas = "\n".join(
+        f"| US$ {v:,.0f}".replace(",", ".")
+        + f" | {brl(v * venda)} | {brl(v * venda * (1 + iof / 100))} |"
+        for v in (100, 500, 1000))
+    partes = [
+        "\n\n## O dólar na prática, hoje\n\n"
+        "| Valor | Pela PTAX | No cartão (com IOF de "
+        f"{pct(iof)}) |\n|---|---|---|\n{linhas}\n\n"
+        f"*Conversão pela PTAX de venda de {brl(venda, 4)}; casas de câmbio "
+        "e bancos somam o próprio spread.*"]
+    # Variedade no Leia tambem: 1 por tipo (guia evergreen > artigo do dia >
+    # nota), senao saem tres notas gemeas da mesma cotacao.
+    candidatos = [a for a in (leia_tambem or [])
+                  if a.get("url_publicada") and a["url_publicada"] != evitar_url]
+    uteis, tipos_vistos = [], set()
+    for tipo in ("ancora", "calendario", "satelite", "reserva"):
+        for a in candidatos:
+            if (a.get("tipo") or "satelite") == tipo and tipo not in tipos_vistos:
+                uteis.append(a)
+                tipos_vistos.add(tipo)
+                break
+    for a in candidatos:      # completa ate 3 se faltou variedade
+        if len(uteis) >= 3:
+            break
+        if a not in uteis:
+            uteis.append(a)
+    uteis = uteis[:3]
+    if uteis:
+        partes.append("\n\n**Leia também**\n" + "\n".join(
+            f"- [{a['titulo']}]({a['url_publicada']})" for a in uteis))
+    partes.append("\n\n*Números apurados pela Doll a partir da PTAX do "
+                  "Banco Central.*")
+    return "".join(partes)
 
 
 def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
@@ -86,13 +156,27 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
     def _mov(v):
         return "subiu" if v > 0.005 else "caiu" if v < -0.005 else "ficou estavel"
 
-    dado = f"PTAX de venda do DOLAR: {brl(n['venda'], 4)}"
+    fatos = [f"PTAX de venda do DOLAR: {brl(n['venda'], 4)}"]
     if n["var_dia"] is not None:
-        dado += f"; no dia o dolar {_mov(n['var_dia'])} {pct(abs(n['var_dia']))}"
+        fatos.append(f"no pregao o dolar {_mov(n['var_dia'])} {pct(abs(n['var_dia']))}")
+    if n["var_semana"] is not None:
+        fatos.append(f"na semana (5 pregoes) {_mov(n['var_semana'])} "
+                     f"{pct(abs(n['var_semana']))}")
+    if n["var_mes"] is not None:
+        fatos.append(f"no mes (21 pregoes) {_mov(n['var_mes'])} "
+                     f"{pct(abs(n['var_mes']))}")
     if n["var_janela"] is not None:
-        dado += (f"; nos ultimos {n['n']} pregoes o dolar "
-                 f"{_mov(n['var_janela'])} {pct(abs(n['var_janela']))}, "
-                 f"oscilando entre {brl(n['menor'], 4)} e {brl(n['maior'], 4)}")
+        fatos.append(f"nos ultimos {n['n']} pregoes oscilou entre "
+                     f"{brl(n['menor'], 4)} e {brl(n['maior'], 4)}")
+    if n.get("seq", 0) >= 2:
+        fatos.append(f"e' o {n['seq']}o pregao seguido de "
+                     f"{'alta' if n['direcao'] > 0 else 'queda'}")
+    if n.get("pregoes_serie", 0) >= 120:
+        fatos.append(
+            f"nos ultimos {n['pregoes_serie']} pregoes (~1 ano): maxima de "
+            f"{brl(n['max_ano'], 4)} em {n['max_quando']:%d/%m/%Y} e minima "
+            f"de {brl(n['min_ano'], 4)} em {n['min_quando']:%d/%m/%Y}")
+    dado = "; ".join(fatos)
 
     sistema = (
         "Voce e' redator de um portal brasileiro de cambio (doll.com.br). "
@@ -103,11 +187,16 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         "propria. Voce NAO tem o texto da materia, so' a manchete: nao "
         "invente numero, data, causa ou detalhe que nao esteja nos dados "
         "fornecidos.\n"
-        "- O valor proprio da nota e' o DADO da base (PTAX, variacao) — use-o. "
-        "Atencao: quando o DOLAR sobe, o real cai (e vice-versa) — respeite a "
-        "direcao exata dos dados, nunca inverta quem subiu.\n"
+        "- O valor proprio do texto e' o DADO da base (PTAX e variacoes) — "
+        "use TODOS os numeros fornecidos, tecendo o contexto: o dia, a "
+        "semana, o mes, a sequencia e a posicao frente aos extremos do ano "
+        "(ex.: a que distancia esta da maxima). Atencao: quando o DOLAR "
+        "sobe, o real cai (e vice-versa) — respeite a direcao exata, nunca "
+        "inverta quem subiu.\n"
+        "- Estruture em 3-4 paragrafos com UM subtitulo markdown (##) no "
+        "meio; nada de lista de topicos.\n"
         "- Termine convidando a ler a pagina-guia, com o link em markdown.\n"
-        "- Portugues do Brasil, tom jornalistico e direto, 120-180 palavras.\n"
+        "- Portugues do Brasil, tom jornalistico e direto, 250-350 palavras.\n"
         "Responda SO um JSON: {\"titulo\": \"...\", \"corpo_md\": \"...\"} — "
         "titulo ate 90 caracteres, corpo em markdown (sem repetir o titulo "
         "como H1).")
@@ -127,7 +216,7 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
            else "(nenhuma disponivel — feche sem link)") + "\n\n"
         "Escreva a nota.")
 
-    saida = llm.gera(prompt, sistema=sistema, max_tokens=1200)
+    saida = llm.gera(prompt, sistema=sistema, max_tokens=1800)
     if not saida:
         return None
     bruto = re.search(r"\{.*\}", saida, re.S)
@@ -139,8 +228,8 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         return None
     titulo = str(d.get("titulo") or "").strip()[:110]
     corpo = str(d.get("corpo_md") or "").strip()
-    if not titulo or len(corpo) < 80:
-        return None  # saida pobre: cai no template
+    if not titulo or len(corpo) < 500:
+        return None  # saida pobre/rasa: cai no template
 
     agora = datetime.now().astimezone().isoformat(timespec="seconds")
     jsonld = json.dumps({
@@ -157,13 +246,15 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
 
 
 def monta(pauta: dict, serie: list[dict], url_ancora: str | None,
-          site: dict) -> dict:
+          site: dict, leia_tambem: list[dict] | None = None) -> dict:
     """Satelite pelo Claude quando ha' chave; senao, pelo template. Ambos
-    respeitam os mesmos guarda-corpos (fonte atribuida, dado proprio, link)."""
-    via_llm = _monta_llm(pauta, serie, url_ancora, site)
-    if via_llm:
-        return via_llm
-    return _monta_template(pauta, serie, url_ancora, site)
+    respeitam os mesmos guarda-corpos (fonte atribuida, dado proprio, link)
+    e ganham os apendices deterministicos: conversao do dia + Leia tambem."""
+    art = _monta_llm(pauta, serie, url_ancora, site) \
+        or _monta_template(pauta, serie, url_ancora, site)
+    art["markdown"] = art["markdown"].rstrip() + _apendices(
+        site, serie, leia_tambem or [], url_ancora)
+    return art
 
 
 def _monta_template(pauta: dict, serie: list[dict], url_ancora: str | None,
