@@ -139,7 +139,8 @@ class Banco:
         if self.seco or not self.cliente:
             return []
         r = (self.cliente.table("pautas")
-             .select("id,item_id,angulo,titulo_sug,dado_proprio,criado_em,itens(publicado_em)")
+             .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,criado_em,"
+                     "itens(publicado_em)")
              .eq("site", site).eq("status", "nova")
              .order("criado_em", desc=True).limit(limite).execute())
         return r.data or []
@@ -160,6 +161,20 @@ class Banco:
              .eq("site", site).eq("status", "aprovada")
              .gte("selecionada_em", inicio_dia_iso).execute())
         return r.count or 0
+
+    def hubs_selecionados_hoje(self, site: str, inicio_dia_iso: str) -> dict:
+        """Quantas pautas cada hub ja consumiu hoje (aprovadas E publicadas) —
+        a selecao usa para nao encher a meta com hub que ja bateu o teto."""
+        if self.seco or not self.cliente:
+            return {}
+        r = (self.cliente.table("pautas").select("hub,status")
+             .eq("site", site).in_("status", ["aprovada", "publicada"])
+             .gte("selecionada_em", inicio_dia_iso).execute())
+        por: dict = {}
+        for p in (r.data or []):
+            h = p.get("hub") or "_"
+            por[h] = por.get(h, 0) + 1
+        return por
 
     def ultimo_horario_sugerido(self, site: str, inicio_dia_iso: str) -> str | None:
         """O slot mais tarde ja marcado hoje — base do espacamento da pista fixa."""

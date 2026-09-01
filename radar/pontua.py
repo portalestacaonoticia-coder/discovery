@@ -27,17 +27,23 @@ PADRAO = {
     "quente_ate_horas": 24,
     # janela editorial (horas cheias, fuso de Sao Paulo) das pautas fixas
     "janela": {"inicio": 8, "fim": 20},
+    # teto de satelites por hub por dia — o MESMO teto que o publicador
+    # aplica. A selecao precisa conhece-lo: em 31/08 ela encheu a meta com
+    # 6 pautas de cotacao sendo que so 2 podiam sair, e o dia fechou 6/8.
+    "satelites_por_hub": 2,
 }
 
 
 def criterios_com_padrao(criterios: dict | None) -> dict:
     """Mescla os criterios salvos com os padroes (salvo incompleto nao quebra)."""
-    c = {k: PADRAO[k] for k in ("dado_proprio", "minimo", "quente_ate_horas")}
+    c = {k: PADRAO[k] for k in ("dado_proprio", "minimo", "quente_ate_horas",
+                                "satelites_por_hub")}
     c["angulos"] = dict(PADRAO["angulos"])
     c["frescor"] = dict(PADRAO["frescor"])
     c["janela"] = dict(PADRAO["janela"])
     if criterios:
-        for chave in ("dado_proprio", "minimo", "quente_ate_horas"):
+        for chave in ("dado_proprio", "minimo", "quente_ate_horas",
+                      "satelites_por_hub"):
             if isinstance(criterios.get(chave), (int, float)):
                 c[chave] = criterios[chave]
         c["angulos"].update(criterios.get("angulos") or {})
@@ -97,8 +103,12 @@ def pontua(pauta: dict, criterios: dict, agora: datetime) -> tuple[int, str]:
 
 def seleciona(pautas: list[dict], vagas: int, criterios: dict | None = None,
               agora: datetime | None = None,
-              fatos_usados: set | None = None) -> list[dict]:
-    """As melhores pautas dentro das vagas: uma por fato, acima do piso.
+              fatos_usados: set | None = None,
+              hubs_usados: dict | None = None) -> list[dict]:
+    """As melhores pautas dentro das vagas: uma por fato, acima do piso, e
+    no maximo satelites_por_hub por hub NO DIA (contando o que ja foi
+    selecionado antes — hubs_usados). Sem este ultimo filtro a meta encaixa
+    pautas que o publicador vai barrar, e a vaga morre sem virar post.
     fatos_usados = item_ids ja selecionados hoje (outra rodada ou pos-veto):
     o mesmo fato nunca entra duas vezes no dia, nem por outro angulo."""
     agora = agora or datetime.now(timezone.utc)
@@ -112,6 +122,8 @@ def seleciona(pautas: list[dict], vagas: int, criterios: dict | None = None,
 
     escolhidas: list[dict] = []
     fatos: set = set(fatos_usados or set())
+    por_hub: dict = dict(hubs_usados or {})
+    teto_hub = int(c.get("satelites_por_hub") or 0)
     for p in pontuadas:
         if len(escolhidas) >= vagas:
             break
@@ -120,6 +132,10 @@ def seleciona(pautas: list[dict], vagas: int, criterios: dict | None = None,
         fato = p.get("item_id") or -p["id"]
         if fato in fatos:
             continue
+        hub = p.get("hub") or "_"
+        if teto_hub and por_hub.get(hub, 0) >= teto_hub:
+            continue  # o hub ja tem o dia cheio: a vaga fica para outro hub
         fatos.add(fato)
+        por_hub[hub] = por_hub.get(hub, 0) + 1
         escolhidas.append(p)
     return escolhidas

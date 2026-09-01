@@ -29,7 +29,8 @@ def roda_selecao(banco: Banco, site: str) -> int:
         return 0
 
     escolhidas = seleciona(banco.pautas_novas(site), vagas, meta.get("criterios"),
-                           fatos_usados=banco.fatos_selecionados_hoje(site, inicio_dia))
+                           fatos_usados=banco.fatos_selecionados_hoje(site, inicio_dia),
+                           hubs_usados=banco.hubs_selecionados_hoje(site, inicio_dia))
     quando = datetime.now(timezone.utc)
     criterios = criterios_com_padrao(meta.get("criterios"))
     ultimo_txt = banco.ultimo_horario_sugerido(site, inicio_dia)
