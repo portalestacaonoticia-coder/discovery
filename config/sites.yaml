@@ -124,3 +124,174 @@ sites:
       piso:
         minimo: 1        # posts/dia abaixo dos quais a reserva age
         apos_hora: 17    # hora de Sao Paulo a partir da qual o piso e' cobrado
+
+  # ── Blogs Tihee (setembro/2026) ─────────────────────────────────────────
+  # Sem base propria por enquanto: so' angulo editorial (o radar nao sugere
+  # angulo de dado quando a base nao existe — ver README). Base propria de
+  # cada um fica como evolucao (ex.: precos de ingredientes no broune,
+  # tabua de defeso no pescaria, calendario IPVA/CNH no guiadomotorista).
+
+  broune:
+    dominio: broune.com.br
+    entidade: "Broune — Receitas e Cozinha Prática"
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    hubs:
+      - id: economia-cozinha
+        titulo: "Preço dos alimentos e economia na cozinha"
+        url: /economia-na-cozinha
+        termos: [preco, preço, precos, preços, inflacao, inflação, cesta basica, cesta básica, supermercado, safra, alta, barato]
+      - id: tendencias
+        titulo: "Tendências e técnicas de cozinha"
+        url: /tendencias
+        termos: [airfryer, air fryer, tendencia, tendência, viral, chef, gastronomia, tecnica, técnica, truque]
+      - id: datas-festas
+        titulo: "Receitas para datas e festas"
+        url: /datas-e-festas
+        termos: [natal, pascoa, páscoa, festa junina, ano novo, dia das maes, dia das mães, ceia, festa, comemoracao, comemoração]
+      - id: saudavel
+        titulo: "Alimentação saudável"
+        url: /alimentacao-saudavel
+        termos: [saudavel, saudável, fit, proteina, proteína, dieta, nutricao, nutrição, vegano, vegetariano, integral]
+
+    fontes:
+      - tipo: google_news
+        consulta: "receita culinaria tendencia"
+      - tipo: google_news
+        consulta: "preco alimentos supermercado"
+
+    publicacao:
+      radar: rascunho        # noticia de terceiro: sempre revisao humana
+
+  divadabeleza:
+    dominio: divadabeleza.com.br
+    entidade: "Diva da Beleza — Beleza, Cabelos e Skincare"
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    hubs:
+      - id: cabelos
+        titulo: "Cabelos: cortes, cores e cuidados"
+        url: /cabelos
+        termos: [cabelo, cabelos, corte, coloracao, coloração, tintura, hidratacao, hidratação, penteado, mecha, mechas]
+      - id: skincare
+        titulo: "Pele e skincare"
+        url: /skincare
+        termos: [pele, skincare, acne, protetor solar, hidratante, rugas, dermatologista, serum, sérum, rotina]
+      - id: maquiagem
+        titulo: "Maquiagem"
+        url: /maquiagem
+        termos: [maquiagem, make, batom, base, rimel, rímel, sombra, blush, delineador]
+      - id: tendencias-beleza
+        titulo: "Tendências de beleza"
+        url: /tendencias
+        termos: [tendencia, tendência, viral, unha, unhas, esmalte, perfume, procedimento, estetica, estética]
+
+    fontes:
+      - tipo: google_news
+        consulta: "beleza skincare tendencia"
+      - tipo: google_news
+        consulta: "cabelo corte coloracao tendencia"
+
+    publicacao:
+      radar: rascunho
+
+  cineartcafe:
+    dominio: cineartcafe.com.br
+    entidade: "Cineart Café — Cinema, Filmes e Séries"
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    hubs:
+      - id: lancamentos
+        titulo: "Estreias e lançamentos no cinema"
+        url: /estreias
+        termos: [estreia, estreias, lancamento, lançamento, trailer, bilheteria, cinema, cinemas]
+      - id: streaming
+        titulo: "Filmes e séries no streaming"
+        url: /streaming
+        termos: [netflix, prime video, disney, hbo, max, globoplay, streaming, serie, série, temporada, catalogo, catálogo]
+      - id: premiacoes
+        titulo: "Premiações e festivais"
+        url: /premiacoes
+        termos: [oscar, globo de ouro, palma de ouro, festival, indicacao, indicação, premio, prêmio, cannes, veneza]
+      - id: bastidores
+        titulo: "Bastidores e elenco"
+        url: /bastidores
+        termos: [ator, atriz, diretor, diretora, elenco, escalado, escalada, producao, produção, sequencia, sequência, remake]
+
+    fontes:
+      - tipo: google_news
+        consulta: "filme estreia cinema"
+      - tipo: google_news
+        consulta: "netflix serie lancamento streaming"
+
+    publicacao:
+      radar: rascunho
+
+  pescaria:
+    dominio: pescaria.co
+    entidade: "Pescaria.co — Pesca Esportiva e Amadora"
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    hubs:
+      - id: tecnicas-equipamentos
+        titulo: "Técnicas e equipamentos de pesca"
+        url: /tecnicas-e-equipamentos
+        termos: [isca, iscas, anzol, molinete, carretilha, vara, linha, tecnica, técnica, arremesso, equipamento]
+      - id: especies
+        titulo: "Espécies de peixes"
+        url: /especies
+        termos: [tucunare, tucunaré, dourado, tilapia, tilápia, traira, traíra, pirarucu, robalo, tambaqui, especie, espécie, peixe]
+      - id: legislacao
+        titulo: "Defeso, piracema e legislação"
+        url: /legislacao
+        termos: [defeso, piracema, ibama, licenca, licença, fiscalizacao, fiscalização, proibicao, proibição, portaria, cota]
+      - id: torneios-destinos
+        titulo: "Torneios e destinos de pesca"
+        url: /torneios-e-destinos
+        termos: [torneio, campeonato, competicao, competição, pesca esportiva, pesqueiro, destino, rio, represa]
+
+    fontes:
+      - tipo: google_news
+        consulta: "pesca esportiva"
+      - tipo: google_news
+        consulta: "piracema defeso pesca"
+
+    publicacao:
+      radar: rascunho
+
+  guiadomotorista:
+    dominio: guiadomotorista.com.br
+    entidade: "Guia do Motorista — CNH, Trânsito e Automóveis"
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+
+    hubs:
+      - id: cnh
+        titulo: "CNH e habilitação"
+        url: /cnh
+        termos: [cnh, habilitacao, habilitação, detran, autoescola, exame, carteira de motorista, renovacao, renovação, categoria]
+      - id: multas-leis
+        titulo: "Multas e leis de trânsito"
+        url: /multas-e-leis
+        termos: [multa, multas, radar, lei seca, codigo de transito, código de trânsito, contran, pontos, infracao, infração, suspensao, suspensão]
+      - id: documentos-impostos
+        titulo: "IPVA, licenciamento e documentos"
+        url: /documentos-e-impostos
+        termos: [ipva, licenciamento, dpvat, documento, transferencia, transferência, placa, crlv, vistoria]
+      - id: carros-combustivel
+        titulo: "Carros e combustível"
+        url: /carros-e-combustivel
+        termos: [carro, carros, lancamento, lançamento, recall, combustivel, combustível, gasolina, etanol, diesel, eletrico, elétrico]
+
+    fontes:
+      - tipo: google_news
+        consulta: "CNH Detran transito"
+      - tipo: google_news
+        consulta: "multa transito CONTRAN lei"
+
+    publicacao:
+      radar: rascunho
