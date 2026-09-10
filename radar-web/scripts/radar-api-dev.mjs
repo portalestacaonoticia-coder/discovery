@@ -1,12 +1,14 @@
-// Espelho local da funcao /api/radar para desenvolvimento (o `vite dev` nao
-// executa funcoes da Vercel). Roda o MESMO handler de api/radar.ts.
+// Espelho local das funcoes /api/* para desenvolvimento (o `vite dev` nao
+// executa funcoes da Vercel). Roda os MESMOS handlers de api/*.ts.
 //
 //   RADAR_SUPABASE_URL=... RADAR_SUPABASE_SERVICE_KEY=... node scripts/radar-api-dev.mjs
+//   (a tela Discovery pede tambem DISCOVERY_GITHUB_TOKEN)
 //
 // RADAR_DEV_SEM_AUTH=1 pula a validacao de sessao (so faz sentido localmente).
 // Requer Node 22.6+ (type stripping para importar o .ts direto).
 import http from "node:http";
-import handler from "../api/radar.ts";
+import handlerRadar from "../api/radar.ts";
+import handlerDiscovery from "../api/discovery.ts";
 
 const PORTA = 8788;
 
@@ -31,6 +33,7 @@ http
       } catch {
         req.body = undefined;
       }
+      const handler = url.pathname.startsWith("/api/discovery") ? handlerDiscovery : handlerRadar;
       handler(req, res).catch((erro) => {
         res.statusCode = 500;
         res.end(JSON.stringify({ erro: String(erro) }));

@@ -28,11 +28,19 @@ dia, seleção automática, critérios editáveis, fila, execuções e artigos.
   horários certos (radar */30; dólar 14h16/15h20 SP úteis). Env:
   RELOGIO_GITHUB_TOKEN (PAT Actions r&w só no discovery), CRON_SECRET opc.
   Motivo: o cron do GitHub em repo privado atrasa horas.
-- `src/App.tsx` — só duas rotas: /auth (login) e / (Radar, protegida).
+- `api/discovery.ts` — tela Discovery: lê e edita o config/sites.yaml direto
+  no GitHub (termos por hub e consultas google_news). Salvar = commit na main;
+  o Actions usa o arquivo novo na rodada seguinte. Edição cirúrgica pelos
+  offsets (`range`) dos nós YAML — comentários e formatação ficam intactos.
+  Env: DISCOVERY_GITHUB_TOKEN (PAT Contents r&w só no discovery; o
+  RELOGIO_GITHUB_TOKEN é só Actions, não serve).
+- `src/App.tsx` — rotas: /auth (login), / (Radar) e /discovery (protegidas).
 - `src/pages/Radar.tsx` — a tela inteira (resumo, seleção, critérios, fila...).
+- `src/pages/Discovery.tsx` — revisão dos termos/consultas de cada site.
 - `src/pages/Auth.tsx` — login (Supabase Auth do conteudo).
-- `src/hooks/useRadar.ts` — fala com /api/radar. `useAuth.tsx` — sessão.
-- `src/lib/radar.ts` — tipos, consultas e regras da tela.
+- `src/hooks/useRadar.ts` — fala com /api/radar. `useDiscovery.ts` — idem
+  para /api/discovery. `useAuth.tsx` — sessão.
+- `src/lib/radar.ts` / `src/lib/discovery.ts` — tipos, consultas e regras.
 - `src/components/ui/` — shadcn (copiado do conteudo).
 
 ## Decisões
