@@ -58,10 +58,10 @@ radar/
 │   │                         aplicativo). Idempotente: reroda = atualiza o post.
 │   ├── alerta.py           ← webhook do Discord (silencioso se nao configurado)
 │   └── principal.py        ← orquestra tudo; e' o entrypoint (`python -m radar.principal`)
-├── radar-web/              ← app proprio da INTERFACE do radar (radar.tihee.com.br):
-│                             Vite+React+shadcn, reusa o Supabase Auth do conteudo
-│                             e le os dados via api/radar.ts. Ver radar-web/MAPA.md.
-│                             (Substituiu o painel Next.js descartado.)
+├── radar-web/              ← so o RELOGIO dos crons da Vercel (tick-*.ts) + redirect
+│                             de radar.tihee.com.br. As telas Radar e Discovery
+│                             migraram para o conteudo.tihee em 10/09/2026 (repo
+│                             conteudotihee). Ver radar-web/MAPA.md.
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
 ├── testar_selecao.py       ← teste offline da selecao automatica de pautas

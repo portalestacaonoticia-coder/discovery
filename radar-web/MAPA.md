@@ -1,70 +1,53 @@
 # Mapa — radar-web (radar.tihee.com.br)
 
-> App próprio da INTERFACE do radar. O motor (coleta, seleção, publicação)
-> continua em Python no GitHub Actions; este app só LÊ e configura.
-> Atualizado em: 2026-08-28
+> Hoje este app é SÓ o relógio dos crons + um redirect. As telas Radar e
+> Discovery vivem no conteudo.tihee (repo conteudotihee) desde 10/09/2026.
+> Atualizado em: 2026-09-10
 
 ## O que é
 
-Painel web do radar de pautas, app standalone (tirado de dentro do
-conteudo.tihee para casa própria, seguindo o padrão studio.tihee /
-conteudo.tihee — um subdomínio por produto). Mostra, por site: resumo do
-dia, seleção automática, critérios editáveis, fila, execuções e artigos.
+Projeto Vercel **radar-tihee** (plano Pro — é ele quem pode ter cron de
+30 min). Duas funções:
 
-## Stack e como rodar
-
-- Vite + React + TypeScript + shadcn/ui + TanStack Query + Supabase Auth.
-- `npm run dev` (porta 8080) | `npm run build`. Deploy na Vercel.
-- Auth: reusa o **Supabase do conteudo.tihee** (mesmas contas) — VITE_SUPABASE_*.
-- Dados: a função `api/radar.ts` lê o **Supabase do radar** com service key
-  (RADAR_SUPABASE_URL / RADAR_SUPABASE_SERVICE_KEY), validando a sessão antes.
-- Dev local da função: `node scripts/radar-api-dev.mjs` (vite faz proxy /api).
+1. **Relógio**: crons da Vercel (vercel.json) que dão workflow_dispatch no
+   GitHub nos horários certos (radar */30; dólar 14h16/15h20 SP úteis).
+   Motivo: o cron do GitHub em repo privado atrasa horas.
+2. **Redirect**: radar.tihee.com.br serve um index.html estático que manda
+   para https://conteudo.tihee.com.br/radar (bookmarks antigos não quebram).
 
 ## Estrutura
 
-- `api/radar.ts` — função serverless: valida a sessão e lê/escreve no radar.
-- `api/tick-radar.ts` / `api/tick-dolar.ts` (+ `_despertador.ts`) — o RELÓGIO:
-  crons da Vercel (vercel.json) que dão workflow_dispatch no GitHub nos
-  horários certos (radar */30; dólar 14h16/15h20 SP úteis). Env:
-  RELOGIO_GITHUB_TOKEN (PAT Actions r&w só no discovery), CRON_SECRET opc.
-  Motivo: o cron do GitHub em repo privado atrasa horas.
-- `api/discovery.ts` — tela Discovery: lê e edita o config/sites.yaml direto
-  no GitHub (termos por hub e consultas google_news). Salvar = commit na main;
-  o Actions usa o arquivo novo na rodada seguinte. Edição cirúrgica pelos
-  offsets (`range`) dos nós YAML — comentários e formatação ficam intactos.
-  Env: DISCOVERY_GITHUB_TOKEN (PAT Contents r&w só no discovery; o
-  RELOGIO_GITHUB_TOKEN é só Actions, não serve).
-- `src/App.tsx` — rotas: /auth (login), / (Radar) e /discovery (protegidas).
-- `src/pages/Radar.tsx` — a tela inteira (resumo, seleção, critérios, fila...).
-- `src/pages/Discovery.tsx` — revisão dos termos/consultas de cada site.
-- `src/pages/Auth.tsx` — login (Supabase Auth do conteudo).
-- `src/hooks/useRadar.ts` — fala com /api/radar. `useDiscovery.ts` — idem
-  para /api/discovery. `useAuth.tsx` — sessão.
-- `src/lib/radar.ts` / `src/lib/discovery.ts` — tipos, consultas e regras.
-- `src/components/ui/` — shadcn (copiado do conteudo).
+- `api/tick-radar.ts` / `api/tick-dolar.ts` — o RELÓGIO. Autônomos de
+  propósito: import relativo sem extensão quebra o runtime ESM da Vercel
+  (FUNCTION_INVOCATION_FAILED). Env: RELOGIO_GITHUB_TOKEN (PAT fine-grained,
+  Actions read&write só no discovery), CRON_SECRET opcional.
+- `index.html` — o redirect (estático, sem bundle JS).
+- `public/` — favicon "D" (favicon.svg) e afins.
+- `vercel.json` — crons + rewrite de SPA (inofensivo agora).
+- `package.json` — ainda tem as deps de UI da época do app completo; o
+  build (`vite build`) só empacota o index estático. Podar é opcional.
 
-## Decisões
+## Histórico e decisões
 
-- App próprio em vez de aba no conteudo (28/08): casa própria, config num
-  lugar, autonomia. O motor Python NÃO migrou (funciona, seria caro/arriscado).
-- Auth reusa o Supabase do conteudo — mesmas contas, sem criar login novo.
+- 28/08: aba Radar saiu do conteudo.tihee para app próprio aqui
+  (radar.tihee.com.br), padrão um subdomínio por produto.
+- 10/09: decisão do Filipe REVERTEU a separação — não fazia sentido manter
+  duas telas idênticas. Radar e Discovery centralizadas no conteudotihee
+  (que já tinha a aba Radar byte a byte igual e a /api/radar no ar). O
+  projeto radar-tihee ficou vivo porque o relógio precisa do plano Pro.
+- A tela Discovery (revisão de termos/consultas do config/sites.yaml com
+  commit direto na main) nasceu aqui em 10/09 e migrou no mesmo dia para o
+  conteudotihee — código em `conteudotihee/api/discovery.ts` e
+  `conteudotihee/src/pages/Discovery.tsx`.
 
 ## Deploy (Vercel)
 
 - Projeto **radar-tihee** (time tihee), repo discovery, Root Directory
   `radar-web`, preset Vite. Push na main = deploy.
-- Env: o projeto tem os nomes do motor (SUPABASE_URL, SUPABASE_SERVICE_KEY,
-  herdados do .env.example na criação) — a função aceita esses OU RADAR_*.
-  Auth do front tem fallback literal (chaves públicas), dispensa VITE_*.
+- Env usadas hoje: RELOGIO_GITHUB_TOKEN (ticks), CRON_SECRET (opcional).
+  RADAR_SUPABASE_*/SUPABASE_* ficaram sem uso após a migração das telas.
 - Domínio: radar.tihee.com.br (CNAME `radar` → 50e25864eb4d8daf
   .vercel-dns-016.com, proxy OFF, na zona Cloudflare do tihee.com.br —
   que vive em OUTRA conta Cloudflare, não na Filipe.otavio@tihee).
 - Pegadinhas que já mordi: vercel.json com BOM (PS 5.1) = "Invalid
   vercel.json"; sem Root Directory a Vercel builda o Python da raiz.
-
-## Estado atual
-
-- 28/08/2026: app NO AR em radar.tihee.com.br (deploy + domínio ok).
-  Pendente: aposentar a aba Radar do conteudo.tihee (decisão do Filipe) e
-  limpar env vars não usadas do projeto Vercel (DISCORD_WEBHOOK,
-  ANTHROPIC_API_KEY, WP_DOLL_* — a função não as usa).
