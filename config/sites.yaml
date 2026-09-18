@@ -157,9 +157,9 @@ sites:
 
     fontes:
       - tipo: google_news
-        consulta: "receita culinaria tendencia"
+        consulta: "receitas para marmitas congeladas"
       - tipo: google_news
-        consulta: "preco alimentos supermercado"
+        consulta: "receitas para marmitas congeladas"
 
     publicacao:
       radar: rascunho        # noticia de terceiro: sempre revisao humana
