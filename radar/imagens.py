@@ -42,9 +42,9 @@ TEMPO_LIMITE = 20
 # Vitals (tambem cobrado pelo Discover) piora.
 MAX_BYTES = 8 * 1024 * 1024
 CANDIDATOS = 8
-# O acervo do Openverse e' bem menor e mais irregular que o do Pexels: sem
-# muito candidato, a consulta volta vazia depois da medicao.
-CANDIDATOS_OPENVERSE = 40
+# Teto do acesso ANONIMO do Openverse: 21 ja' devolve 401 Unauthorized.
+# Nao subir sem registrar uma aplicacao e mandar token.
+CANDIDATOS_OPENVERSE = 20
 
 CABECALHO = {"User-Agent": "RadarPautas/1.0 (+https://tihee.com.br)"}
 
@@ -149,14 +149,18 @@ def _pexels(consulta: str, chave: str) -> list[dict]:
 
 
 def _openverse(consulta: str) -> list[dict]:
-    # Sem aspect_ratio nem size: os tres filtros juntos derrubavam quase tudo
-    # (ensaio de 18/09 — "nada >= 1200px" em 4 de 5 hubs). O acervo livre e'
-    # bem menor que o do Pexels, entao o filtro de verdade fica na medicao dos
-    # bytes, que e' exata; aqui so' se pede muito candidato e uso comercial.
+    # Os tres parametros abaixo foram medidos contra a API em 18/09, e cada um
+    # importa (numa amostra de 3 consultas, 20 resultados cada):
+    #   size=large        -> ESSENCIAL. Com ele, 19-20 de 20 passam no criterio
+    #                        do Discover; sem ele, ZERO passa.
+    #   aspect_ratio=wide -> removido: junto com os outros derrubava tudo, e a
+    #                        proporcao nao e' exigencia, so' recomendacao.
+    #   page_size<=20     -> teto do acesso anonimo. 21 ja' devolve 401.
     r = requests.get("https://api.openverse.org/v1/images/",
                      headers=CABECALHO,
                      params={"q": consulta, "page_size": CANDIDATOS_OPENVERSE,
-                             "license_type": "commercial", "mature": "false"},
+                             "license_type": "commercial", "size": "large",
+                             "mature": "false"},
                      timeout=TEMPO_LIMITE)
     r.raise_for_status()
     saida = []
