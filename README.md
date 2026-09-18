@@ -192,15 +192,21 @@ existe mas praticamente nao aparece. A exigencia e' objetiva:
 do WordPress e o post sai com imagem destacada. O `wp_media_id` fica gravado no
 artigo — rerodar atualiza o mesmo post sem duplicar a imagem.
 
-Dois provedores, nesta ordem:
-
-| Provedor | Chave | Licenca | Credito |
+| Provedor | Como liga | Licenca | Relevancia |
 |---|---|---|---|
-| Pexels | `PEXELS_API_KEY` (gratuita em pexels.com/api) | uso comercial livre | opcional |
-| Openverse | nenhuma | filtrado por `license_type=commercial` | **obrigatorio** (CC-BY) |
+| Pexels | `PEXELS_API_KEY`, gratuita em pexels.com/api | uso comercial livre, credito opcional | boa — acervo de stock |
+| Openverse | `IMAGENS_OPENVERSE=1` (desligado) | CC comercial, credito **obrigatorio** | **ruim** — acervo documental |
 
-Sem chave nenhuma ja' funciona, pelo Openverse. O credito viaja junto da imagem
-e vai para a legenda da midia no WP — e' obrigacao legal nas imagens CC.
+**A chave do Pexels nao e' opcional na pratica.** O Openverse nao pede
+cadastro e passa no tamanho, mas erra o assunto: medindo em 18/09 pelos termos
+dos hubs, `travel passport money airport` devolveu um documento do Ministerio
+do Interior da Alemanha nazista, e `home cooked main dish`, uma foto da
+Agencia Espacial Europeia. Ele agrega acervo historico (Wikimedia), nao banco
+de foto para ilustrar texto. Por isso vem desligado: perder o card do Discover
+e' ruim, publicar foto errada ao lado do texto e' pior.
+
+O credito viaja junto da imagem e vai para a legenda da midia no WP — no
+Openverse isso e' obrigacao legal (CC-BY), no Pexels e' cortesia.
 
 **A imagem e' ilustracao tematica, nao registro do fato.** A busca usa o termo
 do HUB (`imagem:` em `config/sites.yaml`), nunca o titulo da materia: foto de

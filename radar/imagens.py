@@ -17,13 +17,18 @@ por isso e' legenda enganosa — o mesmo erro que os portoes de publicacao
 existem para evitar. Hub sobre pessoa real leva `imagem: false` no yaml: foto
 de stock ao lado do nome de um cidadao vivo sugere que e' ele, e nao e'.
 
-Provedores, nesta ordem:
-  1. Pexels    (PEXELS_API_KEY) — licenca livre para uso comercial, sem
-               exigencia de credito. Melhor qualidade e relevancia.
-  2. Openverse (sem chave nenhuma) — agregador de Creative Commons do
-               WordPress.org. Filtrado por licenca que permite uso comercial;
-               o credito e' OBRIGATORIO (CC-BY), entao ele sempre viaja junto
-               e o publicador grava na legenda da midia.
+Provedores:
+  1. Pexels    (PEXELS_API_KEY) — o caminho normal. Banco de foto de stock:
+               licenca livre para uso comercial, sem exigencia de credito, e
+               relevancia boa porque o acervo existe para ilustrar texto.
+  2. Openverse (IMAGENS_OPENVERSE=1) — DESLIGADO por padrao. Nao pede chave,
+               mas agrega acervo documental (Wikimedia): passa no tamanho e
+               erra na relevancia. Ver o comentario em _candidatos com o que
+               foi medido. Ligue so' se alguem for revisar as imagens.
+
+Sem Pexels e sem o Openverse ligado, nao ha' imagem — o post sai sem ela,
+como saia antes. Perder alcance no Discover e' ruim; publicar foto errada ao
+lado do texto e' pior.
 
 A dimensao nao e' confiada ao provedor: o candidato e' BAIXADO e medido nos
 bytes (ver `dimensoes`). E' o mesmo principio dos portoes do dolar — o numero
@@ -195,7 +200,17 @@ def _candidatos(consulta: str) -> list[dict]:
             if achados:
                 return achados
         except Exception as erro:
-            print(f"  [imagem] Pexels falhou ({erro}); tentando Openverse")
+            print(f"  [imagem] Pexels falhou ({erro})")
+
+    # O Openverse passa no TAMANHO mas erra feio na RELEVANCIA: ele agrega
+    # acervo documental e historico (Wikimedia), nao banco de foto de stock.
+    # Medido em 18/09, buscando pelos termos dos hubs: "travel passport money
+    # airport" devolveu um documento do Ministerio do Interior da Alemanha
+    # nazista; "home cooked main dish", uma foto da Agencia Espacial Europeia.
+    # Imagem errada ao lado do texto e' pior que post sem imagem — entao ele
+    # so' entra se alguem ligar de proposito e aceitar revisar o que sai.
+    if env("IMAGENS_OPENVERSE") != "1":
+        return []
     try:
         return _openverse(consulta)
     except Exception as erro:
