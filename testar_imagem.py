@@ -29,7 +29,10 @@ def _png(largura: int, altura: int) -> bytes:
 def testa_medidor() -> int:
     casos = [
         (_png(1280, 720), (1280, 720), True,  "16:9 grande — passa"),
-        (_png(1200, 250), (1200, 250), False, "larga o bastante, area de menos"),
+        # 1200x250 da' exatamente 300.000 px: o minimo do Google E' atingido,
+        # entao passa. O caso que reprova precisa ficar ABAIXO da area.
+        (_png(1200, 250), (1200, 250), True,  "limite exato da area — passa"),
+        (_png(1200, 200), (1200, 200), False, "larga o bastante, area de menos"),
         (_png(800, 600),  (800, 600),  False, "area ok, largura de menos"),
         (_png(1920, 1080), (1920, 1080), True, "full hd — passa"),
     ]
