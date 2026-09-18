@@ -30,8 +30,13 @@ jobs:
       - name: compila tudo
         run: python -m compileall -q radar/ *.py
 
-      - name: medidor de imagem (offline)
-        run: python testar_imagem.py
+      # --rede: busca de verdade em cada hub. E' o ponto do ensaio — mostra
+      # hub por hub se o acervo tem imagem no tamanho do Discover.
+      - name: imagem — medidor e busca real
+        run: python testar_imagem.py --rede
+        continue-on-error: true      # hub sem imagem nao derruba o ensaio
+        env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
       # Sem linha em `metas` a selecao nao roda e a fila nunca vira artigo.
       # Idempotente: meta existente nao e' tocada.
