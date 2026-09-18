@@ -38,6 +38,15 @@ jobs:
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
+      # Migration pendente so' aparece quando a esteira quebra em producao —
+      # aqui ela aparece antes, com o nome do arquivo que resolve.
+      - name: confere o schema do banco
+        run: python -m radar.verifica_schema
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
       # Sem linha em `metas` a selecao nao roda e a fila nunca vira artigo.
       # Idempotente: meta existente nao e' tocada.
       - name: garante as metas
