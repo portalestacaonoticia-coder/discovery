@@ -42,6 +42,9 @@ TEMPO_LIMITE = 20
 # Vitals (tambem cobrado pelo Discover) piora.
 MAX_BYTES = 8 * 1024 * 1024
 CANDIDATOS = 8
+# O acervo do Openverse e' bem menor e mais irregular que o do Pexels: sem
+# muito candidato, a consulta volta vazia depois da medicao.
+CANDIDATOS_OPENVERSE = 40
 
 CABECALHO = {"User-Agent": "RadarPautas/1.0 (+https://tihee.com.br)"}
 
@@ -146,12 +149,14 @@ def _pexels(consulta: str, chave: str) -> list[dict]:
 
 
 def _openverse(consulta: str) -> list[dict]:
+    # Sem aspect_ratio nem size: os tres filtros juntos derrubavam quase tudo
+    # (ensaio de 18/09 — "nada >= 1200px" em 4 de 5 hubs). O acervo livre e'
+    # bem menor que o do Pexels, entao o filtro de verdade fica na medicao dos
+    # bytes, que e' exata; aqui so' se pede muito candidato e uso comercial.
     r = requests.get("https://api.openverse.org/v1/images/",
                      headers=CABECALHO,
-                     params={"q": consulta, "page_size": CANDIDATOS,
-                             "license_type": "commercial",
-                             "aspect_ratio": "wide", "size": "large",
-                             "mature": "false"},
+                     params={"q": consulta, "page_size": CANDIDATOS_OPENVERSE,
+                             "license_type": "commercial", "mature": "false"},
                      timeout=TEMPO_LIMITE)
     r.raise_for_status()
     saida = []
@@ -211,12 +216,28 @@ def credito_de(img: dict) -> str:
 def busca(consulta: str) -> dict | None:
     """A primeira imagem que REALMENTE cumpre o criterio do Discover.
 
+    Tenta a consulta do hub e, se nada servir, uma versao encurtada — termo de
+    4 palavras acha pouco no acervo livre, e 2 palavras costumam resolver
+    ("gas station fuel pump car" -> "gas station").
+
     Devolve {conteudo: bytes, tipo, largura, altura, alt, credito, ...} ou
     None — sem provedor, sem resultado ou nenhum candidato no tamanho.
     """
     if not consulta:
         return None
+    tentativas = [consulta]
+    curta = " ".join(consulta.split()[:2])
+    if curta and curta != consulta:
+        tentativas.append(curta)
 
+    for tentativa in tentativas:
+        achada = _tenta(tentativa)
+        if achada:
+            return achada
+    return None
+
+
+def _tenta(consulta: str) -> dict | None:
     for cand in _candidatos(consulta):
         # Descarta cedo pelo tamanho declarado, para nao baixar o que ja' se
         # sabe pequeno. Sem os campos, segue para a medicao real.

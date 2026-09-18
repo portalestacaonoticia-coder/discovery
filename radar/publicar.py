@@ -120,7 +120,11 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
                   f"{art['titulo']}")
             continue
 
-        status = "publicada" if pode_publicar else "rascunho"
+        # O artigo NASCE 'aprovada'/'rascunho' — nunca 'publicada'. So'
+        # marca_publicado promove, depois do WordPress confirmar. Gravar
+        # 'publicada' aqui deixa no banco artigo que nunca foi ao ar: foi o que
+        # aconteceu no primeiro ensaio de 18/09, com os 401 de credencial.
+        status = "aprovada" if pode_publicar else "rascunho"
         banco.grava_artigo({
             "site": nome, "tipo": "guia", "hub": pt.get("hub"),
             "titulo": art["titulo"], "resumo": art["resumo"],
@@ -140,15 +144,20 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
             resultado = publica({
                 "titulo": art["titulo"], "corpo_md": art["markdown"],
                 "resumo": art["resumo"], "jsonld": art["jsonld"],
-                # rascunho vira draft no WP; o portao e' o publicacao.radar
-                "status": status, "hub": pt.get("hub"),
+                # o publicador so' entende 'publicada' (vira publish no WP) ou
+                # o resto (draft) — a decisao vai explicita, nao o status
+                # persistido, que aqui ainda e' 'aprovada'
+                "status": "publicada" if pode_publicar else "rascunho",
+                "hub": pt.get("hub"),
                 "wp_post_id": (existente or {}).get("wp_post_id"),
                 "wp_media_id": (existente or {}).get("wp_media_id"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
                 "senha_app": os.environ[wp["senha_env"]]}, site)
+            # Confirmado no WP: agora sim o status reflete a realidade.
             banco.marca_publicado(nome, "guia", ref, resultado["id"],
-                                  resultado.get("link"), status,
+                                  resultado.get("link"),
+                                  "publicada" if pode_publicar else "rascunho",
                                   resultado.get("midia_id"),
                                   resultado.get("imagem_url"),
                                   resultado.get("imagem_credito"))
