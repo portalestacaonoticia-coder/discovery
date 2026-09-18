@@ -158,13 +158,17 @@ def main() -> int:
                 "status": "publicada" if pode_publicar else "rascunho",
                 "hub": "cotacao",
                 "wp_post_id": (existente or {}).get("wp_post_id"),
+                "wp_media_id": (existente or {}).get("wp_media_id"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
-                "senha_app": os.environ[wp["senha_env"]]})
+                "senha_app": os.environ[wp["senha_env"]]}, site)
             # Confirmado no WP: agora sim o status reflete a realidade.
             status = "publicada" if pode_publicar else "rascunho"
             banco.marca_publicado(SITE, "calendario", hoje["data"].isoformat(),
-                                  resultado["id"], resultado.get("link"), status)
+                                  resultado["id"], resultado.get("link"), status,
+                                  resultado.get("midia_id"),
+                                  resultado.get("imagem_url"),
+                                  resultado.get("imagem_credito"))
             link = resultado.get("link")
         except (ErroWordPress, KeyError) as erro:
             # Falha de publicacao nao pode perder o artigo: ele ja' esta' no banco

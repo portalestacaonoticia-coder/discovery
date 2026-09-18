@@ -108,6 +108,11 @@ create table if not exists metas (
 -- Colunas da selecao automatica (radar/selecao.py preenche; a aba exibe).
 -- Em bases criadas antes delas, os alter abaixo completam o schema.
 alter table metas  add column if not exists criterios jsonb;
+-- Imagem destacada (radar/imagens.py): exigencia pratica do Google Discover.
+-- wp_media_id evita reenviar o arquivo a cada rerodada do publicador.
+alter table artigos add column if not exists wp_media_id bigint;
+alter table artigos add column if not exists imagem_url text;
+alter table artigos add column if not exists imagem_credito text;
 alter table pautas add column if not exists pontuacao int;
 alter table pautas add column if not exists motivo_selecao text;
 alter table pautas add column if not exists selecionada_em timestamptz;

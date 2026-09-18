@@ -214,11 +214,15 @@ def main() -> int:
             "resumo": art["resumo"], "jsonld": art["jsonld"],
             "status": "publicada", "hub": "cotacao",
             "wp_post_id": (existente or {}).get("wp_post_id"),
+            "wp_media_id": (existente or {}).get("wp_media_id"),
         }, {**wp,
             "usuario": os.environ[wp["usuario_env"]],
-            "senha_app": os.environ[wp["senha_env"]]})
+            "senha_app": os.environ[wp["senha_env"]]}, site)
         banco.marca_publicado(SITE, "reserva", ref, resultado["id"],
-                              resultado.get("link"), "publicada")
+                              resultado.get("link"), "publicada",
+                              resultado.get("midia_id"),
+                              resultado.get("imagem_url"),
+                              resultado.get("imagem_credito"))
         banco.registra_execucao({"fluxo": "reserva", "site": SITE, "status": "ok",
                                  "resumo": f"piso agiu: reserva no ar ({resultado.get('link')})",
                                  "inicio": datetime.now(timezone.utc).isoformat()})

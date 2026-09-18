@@ -144,6 +144,45 @@ O caminho que sustenta volume: **automatico onde o dado e' seu e verificavel**
 base), **rascunho onde o fato e' de outro**. Isso mantem a escala e tira do ar o
 risco que nao vale a pena correr.
 
+## Imagem destacada — o que destrava o Google Discover
+
+O Discover e' uma superficie de **cards**. Sem imagem grande declarada, o post
+existe mas praticamente nao aparece. A exigencia e' objetiva:
+
+    largura >= 1200 px  E  largura x altura >= 300.000 px
+    declarada em og:image ou schema.org, com max-image-preview:large
+
+`radar/imagens.py` resolve isso no momento da publicacao: busca no acervo,
+**baixa e mede os bytes** (nao confia no que a API diz), sobe para a biblioteca
+do WordPress e o post sai com imagem destacada. O `wp_media_id` fica gravado no
+artigo — rerodar atualiza o mesmo post sem duplicar a imagem.
+
+Dois provedores, nesta ordem:
+
+| Provedor | Chave | Licenca | Credito |
+|---|---|---|---|
+| Pexels | `PEXELS_API_KEY` (gratuita em pexels.com/api) | uso comercial livre | opcional |
+| Openverse | nenhuma | filtrado por `license_type=commercial` | **obrigatorio** (CC-BY) |
+
+Sem chave nenhuma ja' funciona, pelo Openverse. O credito viaja junto da imagem
+e vai para a legenda da midia no WP — e' obrigacao legal nas imagens CC.
+
+**A imagem e' ilustracao tematica, nao registro do fato.** A busca usa o termo
+do HUB (`imagem:` em `config/sites.yaml`), nunca o titulo da materia: foto de
+acervo nao retrata o fato noticiado, e fazer passar por isso e' legenda
+enganosa — o mesmo erro que os portoes existem para evitar. Por isso tambem
+existe `imagem: false`, que desliga a imagem num hub: e' o caso do
+`ferrugem.com.br` inteiro, onde o assunto e' um cidadao vivo e foto de acervo ao
+lado do nome dele sugere que e' ele.
+
+```bash
+python testar_imagem.py          # mede o portao, offline
+python testar_imagem.py --rede   # busca de verdade em cada hub
+```
+
+No WordPress, `wordpress/radar-jsonld.php` cuida do resto: `max-image-preview:large`
+e, quando nao ha' Rank Math nem Yoast, o proprio `og:image`.
+
 ## Regras de coleta (nao negociaveis no projeto)
 
 - Coletar titulo, URL, data e o resumo que o proprio feed publica. **Nunca** o

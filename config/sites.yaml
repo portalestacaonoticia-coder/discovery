@@ -11,23 +11,30 @@ sites:
 
     # Hubs = paginas permanentes. Toda pauta e' classificada em um deles.
     # 'termos' alimenta o classificador por palavra-chave (modo sem LLM).
+    # 'imagem: false' em TODOS os hubs: este site fala de um cidadao vivo.
+    # Foto de acervo ao lado do nome dele sugere que e' ele — e nao e'. Aqui
+    # a imagem destacada so' entra com foto licenciada do proprio artista.
     hubs:
       - id: agenda
         titulo: "Agenda de shows do Ferrugem"
         url: /agenda-de-shows
         termos: [show, shows, turne, turnê, ingresso, ingressos, apresentacao, apresentação, festival, palco]
+        imagem: false
       - id: perfil
         titulo: "Quem e Ferrugem"
         url: /quem-e-ferrugem
         termos: [biografia, historia, história, carreira, entrevista, familia, família]
+        imagem: false
       - id: musicas
         titulo: "Discografia e lancamentos"
         url: /discografia
         termos: [album, álbum, single, lancamento, lançamento, clipe, dvd, ep, feat, parceria]
+        imagem: false
       - id: premios
         titulo: "Premios e indicacoes"
         url: /premios
         termos: [premio, prêmio, grammy, multishow, indicacao, indicação, trofeu, troféu]
+        imagem: false
 
     # Sobrescreve o molde de titulo de um angulo so' para este site.
     moldes:
@@ -59,22 +66,29 @@ sites:
     fuso: America/Sao_Paulo
 
     hubs:
+      # 'imagem' = termo de busca no banco de imagens (radar/imagens.py).
+      # Em INGLES de proposito: e' o idioma em que os acervos livres estao
+      # catalogados, entao rende muito mais resultado no tamanho do Discover.
       - id: cotacao
         titulo: "Cotacao do dolar hoje"
         url: /cotacao-do-dolar
         termos: [dolar, dólar, cotacao, cotação, ptax, cambio, câmbio, moeda]
+        imagem: "us dollar bills currency"
       - id: politica-monetaria
         titulo: "Como Fed e Copom mexem no dolar"
         url: /fed-copom-dolar
         termos: [fed, fomc, copom, juros, selic, ata, powell, banco central]
+        imagem: "central bank building finance"
       - id: viagem
         titulo: "Dolar para viagem: turismo, cartao e IOF"
         url: /dolar-viagem
         termos: [viagem, turismo, iof, cartao, cartão, remessa, exterior, casa de cambio]
+        imagem: "travel passport money airport"
       - id: indicadores
         titulo: "Indicadores que movem o dolar"
         url: /indicadores
         termos: [ipca, cpi, payroll, pib, inflacao, inflação, focus, balanca, balança]
+        imagem: "financial charts economic data"
 
     # Aliquotas usadas nas tabelas de conversao. CONFERIR na Receita/decreto antes
     # de publicar: IOF muda por decreto e o numero errado sai em toda materia.
@@ -137,29 +151,40 @@ sites:
     idioma: pt-BR
     fuso: America/Sao_Paulo
 
+    # SO' RECEITAS (decisao de 18/09/2026): os hubs de economia da cozinha e
+    # de alimentacao saudavel sairam. Preco de alimento e nutricao sao pauta
+    # de noticia, nao de receita — e hub fora do tema puxa o classificador
+    # para longe do que o site e'.
     hubs:
-      - id: economia-cozinha
-        titulo: "Preço dos alimentos e economia na cozinha"
-        url: /economia-na-cozinha
-        termos: [preco, preço, precos, preços, inflacao, inflação, cesta basica, cesta básica, supermercado, safra, alta, barato]
-      - id: tendencias
-        titulo: "Tendências e técnicas de cozinha"
-        url: /tendencias
-        termos: [airfryer, air fryer, tendencia, tendência, viral, chef, gastronomia, tecnica, técnica, truque]
+      - id: receitas-rapidas
+        titulo: "Receitas rápidas e práticas"
+        url: /receitas-rapidas
+        termos: [receita, receitas, rapida, rápida, pratica, prática, facil, fácil, airfryer, air fryer, micro-ondas, 15 minutos, 30 minutos, poucos ingredientes]
+        imagem: "quick home cooking"
+      - id: doces-sobremesas
+        titulo: "Doces e sobremesas"
+        url: /doces-e-sobremesas
+        termos: [bolo, bolos, torta, doce, doces, sobremesa, sobremesas, pudim, brigadeiro, mousse, cookie, biscoito, brownie, cheesecake]
+        imagem: "homemade dessert cake"
+      - id: pratos-principais
+        titulo: "Pratos principais"
+        url: /pratos-principais
+        termos: [almoco, almoço, jantar, prato principal, carne, frango, peixe, massa, macarrao, macarrão, arroz, risoto, lasanha, sopa, ensopado]
+        imagem: "home cooked main dish"
       - id: datas-festas
         titulo: "Receitas para datas e festas"
         url: /datas-e-festas
         termos: [natal, pascoa, páscoa, festa junina, ano novo, dia das maes, dia das mães, ceia, festa, comemoracao, comemoração]
-      - id: saudavel
-        titulo: "Alimentação saudável"
-        url: /alimentacao-saudavel
-        termos: [saudavel, saudável, fit, proteina, proteína, dieta, nutricao, nutrição, vegano, vegetariano, integral]
+        imagem: "festive holiday table food"
 
     fontes:
       - tipo: google_news
         consulta: "receitas para marmitas congeladas"
+      # A segunda consulta e' de proposito MAIS ampla que a primeira: com as
+      # duas iguais, so' chega pauta de marmita e os hubs de doces e de datas
+      # nunca enchem. Editavel na aba Discovery do conteudo.tihee.
       - tipo: google_news
-        consulta: "receitas para marmitas congeladas"
+        consulta: "receita facil dia a dia"
 
     publicacao:
       radar: rascunho        # noticia de terceiro: sempre revisao humana
@@ -175,18 +200,22 @@ sites:
         titulo: "Cabelos: cortes, cores e cuidados"
         url: /cabelos
         termos: [cabelo, cabelos, corte, coloracao, coloração, tintura, hidratacao, hidratação, penteado, mecha, mechas]
+        imagem: "hair salon styling"
       - id: skincare
         titulo: "Pele e skincare"
         url: /skincare
         termos: [pele, skincare, acne, protetor solar, hidratante, rugas, dermatologista, serum, sérum, rotina]
+        imagem: "skincare routine face"
       - id: maquiagem
         titulo: "Maquiagem"
         url: /maquiagem
         termos: [maquiagem, make, batom, base, rimel, rímel, sombra, blush, delineador]
+        imagem: "makeup cosmetics beauty"
       - id: tendencias-beleza
         titulo: "Tendências de beleza"
         url: /tendencias
         termos: [tendencia, tendência, viral, unha, unhas, esmalte, perfume, procedimento, estetica, estética]
+        imagem: "beauty products manicure"
 
     fontes:
       - tipo: google_news
@@ -204,22 +233,28 @@ sites:
     fuso: America/Sao_Paulo
 
     hubs:
+      # Nada de buscar por nome de ator: a foto de acervo ilustra o TEMA
+      # (sala, tela, set), nunca a pessoa da materia.
       - id: lancamentos
         titulo: "Estreias e lançamentos no cinema"
         url: /estreias
         termos: [estreia, estreias, lancamento, lançamento, trailer, bilheteria, cinema, cinemas]
+        imagem: "cinema movie theater screen"
       - id: streaming
         titulo: "Filmes e séries no streaming"
         url: /streaming
         termos: [netflix, prime video, disney, hbo, max, globoplay, streaming, serie, série, temporada, catalogo, catálogo]
+        imagem: "streaming tv remote couch"
       - id: premiacoes
         titulo: "Premiações e festivais"
         url: /premiacoes
         termos: [oscar, globo de ouro, palma de ouro, festival, indicacao, indicação, premio, prêmio, cannes, veneza]
+        imagem: "film award trophy red carpet"
       - id: bastidores
         titulo: "Bastidores e elenco"
         url: /bastidores
         termos: [ator, atriz, diretor, diretora, elenco, escalado, escalada, producao, produção, sequencia, sequência, remake]
+        imagem: "film set camera production"
 
     fontes:
       - tipo: google_news
@@ -241,18 +276,22 @@ sites:
         titulo: "Técnicas e equipamentos de pesca"
         url: /tecnicas-e-equipamentos
         termos: [isca, iscas, anzol, molinete, carretilha, vara, linha, tecnica, técnica, arremesso, equipamento]
+        imagem: "fishing rod reel tackle"
       - id: especies
         titulo: "Espécies de peixes"
         url: /especies
         termos: [tucunare, tucunaré, dourado, tilapia, tilápia, traira, traíra, pirarucu, robalo, tambaqui, especie, espécie, peixe]
+        imagem: "freshwater fish river"
       - id: legislacao
         titulo: "Defeso, piracema e legislação"
         url: /legislacao
         termos: [defeso, piracema, ibama, licenca, licença, fiscalizacao, fiscalização, proibicao, proibição, portaria, cota]
+        imagem: "river nature conservation"
       - id: torneios-destinos
         titulo: "Torneios e destinos de pesca"
         url: /torneios-e-destinos
         termos: [torneio, campeonato, competicao, competição, pesca esportiva, pesqueiro, destino, rio, represa]
+        imagem: "sport fishing boat lake"
 
     fontes:
       - tipo: google_news
@@ -274,18 +313,22 @@ sites:
         titulo: "CNH e habilitação"
         url: /cnh
         termos: [cnh, habilitacao, habilitação, detran, autoescola, exame, carteira de motorista, renovacao, renovação, categoria]
+        imagem: "driving lesson car steering wheel"
       - id: multas-leis
         titulo: "Multas e leis de trânsito"
         url: /multas-e-leis
         termos: [multa, multas, radar, lei seca, codigo de transito, código de trânsito, contran, pontos, infracao, infração, suspensao, suspensão]
+        imagem: "traffic sign road city"
       - id: documentos-impostos
         titulo: "IPVA, licenciamento e documentos"
         url: /documentos-e-impostos
         termos: [ipva, licenciamento, dpvat, documento, transferencia, transferência, placa, crlv, vistoria]
+        imagem: "car documents paperwork desk"
       - id: carros-combustivel
         titulo: "Carros e combustível"
         url: /carros-e-combustivel
         termos: [carro, carros, lancamento, lançamento, recall, combustivel, combustível, gasolina, etanol, diesel, eletrico, elétrico]
+        imagem: "gas station fuel pump car"
 
     fontes:
       - tipo: google_news

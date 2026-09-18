@@ -31,3 +31,25 @@ add_filter('wp_robots', function ($robots) {
     $robots['max-video-preview'] = '-1';
     return $robots;
 });
+
+// og:image de reserva. Com Rank Math/Yoast no ar, eles ja' imprimem o og:image
+// da imagem destacada e este bloco sai de cena (duas tags confundem o rastreador).
+// Sem plugin de SEO, e' isto que entrega a imagem ao Discover.
+add_action('wp_head', function () {
+    if (!is_singular('post')) return;
+    if (defined('RANK_MATH_VERSION') || defined('WPSEO_VERSION')) return;
+    if (!has_post_thumbnail()) return;
+
+    // 'full' de proposito: o Discover exige >= 1200px de largura, e os
+    // tamanhos intermediarios do WP ficam abaixo disso.
+    $img = wp_get_attachment_image_src(get_post_thumbnail_id(), 'full');
+    if (!$img) return;
+
+    printf(
+        "\n<meta property=\"og:image\" content=\"%s\" />\n"
+        . "<meta property=\"og:image:width\" content=\"%d\" />\n"
+        . "<meta property=\"og:image:height\" content=\"%d\" />\n"
+        . "<meta name=\"twitter:card\" content=\"summary_large_image\" />\n",
+        esc_url($img[0]), (int) $img[1], (int) $img[2]
+    );
+}, 5);

@@ -136,12 +136,15 @@ def main() -> int:
                     "resumo": art["resumo"], "jsonld": art["jsonld"],
                     "status": "publicada", "hub": pt.get("hub"),
                     "wp_post_id": (existente or {}).get("wp_post_id"),
+                    "wp_media_id": (existente or {}).get("wp_media_id"),
                 }, {**wp,
                     "usuario": os.environ[wp["usuario_env"]],
-                    "senha_app": os.environ[wp["senha_env"]]})
+                    "senha_app": os.environ[wp["senha_env"]]}, site)
                 banco.marca_publicado(SITE, "satelite", ref,
                                       resultado["id"], resultado.get("link"),
-                                      "publicada")
+                                      "publicada", resultado.get("midia_id"),
+                                      resultado.get("imagem_url"),
+                                      resultado.get("imagem_credito"))
                 banco.marca_pauta_publicada(pt["id"])
                 publicados += 1
                 print(f"  no ar: {resultado.get('link')}")

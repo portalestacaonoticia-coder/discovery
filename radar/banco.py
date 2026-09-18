@@ -116,15 +116,27 @@ class Banco:
 
     def marca_publicado(self, site: str, tipo: str, referencia: str,
                         post_id: int, url: str | None,
-                        status: str = "publicada") -> None:
+                        status: str = "publicada",
+                        midia_id: int | None = None,
+                        imagem_url: str | None = None,
+                        imagem_credito: str | None = None) -> None:
         """So' aqui o artigo vira 'publicada': o status acompanha o que o
         WordPress confirmou. Sem esse passo, uma falha de publicacao deixava
-        o artigo 'publicada' no banco sem nunca ter ido ao ar."""
+        o artigo 'publicada' no banco sem nunca ter ido ao ar.
+
+        wp_media_id guarda a imagem destacada ja' enviada: a rerodada
+        reaproveita em vez de encher a biblioteca do WP de copias."""
         if self.seco:
             print(f"  [seco] publicado no WP: post {post_id} -> {url}")
             return
-        (self.cliente.table("artigos")
-         .update({"wp_post_id": post_id, "url_publicada": url, "status": status})
+        campos = {"wp_post_id": post_id, "url_publicada": url, "status": status}
+        if midia_id:
+            campos["wp_media_id"] = midia_id
+        if imagem_url:
+            campos["imagem_url"] = imagem_url
+        if imagem_credito:
+            campos["imagem_credito"] = imagem_credito
+        (self.cliente.table("artigos").update(campos)
          .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
 
     # -- selecao automatica de pautas ---------------------------------------
