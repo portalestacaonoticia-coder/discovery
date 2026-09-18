@@ -60,12 +60,34 @@ def existe(base: str, chave: str, tabela: str, coluna: str) -> bool | None:
     return None
 
 
+# Supabase do app conteudo.tihee — o ref e' publico (esta' no bundle do front
+# e em api/radar.ts). Serve para dizer se o radar grava no MESMO projeto.
+REF_CONTEUDO = "eprnygwxuysygloerbav"
+
+
+def ref_do_projeto(url: str) -> str:
+    """'https://abc123.supabase.co' -> 'abc123'. O ref nao e' segredo: aparece
+    em toda URL publica do projeto."""
+    sem_esquema = url.split("://")[-1]
+    return sem_esquema.split(".")[0]
+
+
 def main() -> int:
     base = (env("SUPABASE_URL") or "").rstrip("/")
     chave = env("SUPABASE_SERVICE_KEY") or ""
     if not base or not chave:
         print("faltam SUPABASE_URL e SUPABASE_SERVICE_KEY")
         return 1
+
+    ref = ref_do_projeto(base)
+    print(f"Projeto Supabase em que o radar grava: {ref}")
+    if ref == REF_CONTEUDO:
+        print("  E' O MESMO projeto do conteudo.tihee — nao existe um Supabase")
+        print("  separado 'do radar'. A migration roda no SQL Editor desse.")
+    else:
+        print(f"  Projeto SEPARADO do conteudo.tihee ({REF_CONTEUDO}).")
+        print(f"  A migration roda em supabase.com/dashboard/project/{ref}/sql")
+    print()
 
     faltando: dict[str, list[str]] = {}
     for tabela, coluna, arquivo, para_que in EXIGIDAS:
