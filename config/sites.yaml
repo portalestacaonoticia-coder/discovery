@@ -40,11 +40,14 @@ sites:
     moldes:
       servico: "{fato}: horario, ingressos e como chegar"
 
+    # UMA consulta por site (18/09/2026): o campo e' o TEMA do site, editavel
+    # na aba Discovery. Para cobrir varios hubs num campo so', use OR — o
+    # Google News aceita, e medido hoje rende o teto de 100 itens, enquanto
+    # empilhar palavras (que ele trata como E) afunila: "receitas marmitas
+    # congeladas" devolveu 49.
     fontes:
       - tipo: google_news
-        consulta: "Ferrugem cantor"
-      - tipo: google_news
-        consulta: "Ferrugem pagode show"
+        consulta: "Ferrugem cantor OR Ferrugem pagode"
       # sitemap de noticias de concorrente: radar mais rapido que existe, e' publico e
       # atualiza em segundos. So' leitura de titulo/URL — nada de copiar texto.
       # - tipo: sitemap_news
@@ -102,9 +105,7 @@ sites:
 
     fontes:
       - tipo: google_news
-        consulta: "dolar cotacao Banco Central"
-      - tipo: google_news
-        consulta: "dolar hoje cambio real"
+        consulta: "dolar OR cotacao OR cambio OR PTAX"
 
     base: cotacoes
 
@@ -178,13 +179,11 @@ sites:
         imagem: "festive holiday table food"
 
     fontes:
+      # Mantem o foco em marmita que o Filipe pediu, mas com OR: sozinha,
+      # "receitas para marmitas congeladas" so' alimentaria receitas-rapidas e
+      # pratos-principais — doces-sobremesas e datas-festas ficariam vazios.
       - tipo: google_news
-        consulta: "receitas para marmitas congeladas"
-      # A segunda consulta e' de proposito MAIS ampla que a primeira: com as
-      # duas iguais, so' chega pauta de marmita e os hubs de doces e de datas
-      # nunca enchem. Editavel na aba Discovery do conteudo.tihee.
-      - tipo: google_news
-        consulta: "receita facil dia a dia"
+        consulta: "receitas OR marmitas congeladas OR sobremesas OR receitas de festa"
 
     # Senha de APLICATIVO do WP (Usuarios -> Perfil -> Senhas de aplicativo).
     # Aqui vai so' o NOME da variavel; o valor fica no .env e nos secrets do
@@ -233,9 +232,7 @@ sites:
 
     fontes:
       - tipo: google_news
-        consulta: "beleza skincare tendencia"
-      - tipo: google_news
-        consulta: "cabelo corte coloracao tendencia"
+        consulta: "beleza OR skincare OR maquiagem OR cabelo"
 
     wordpress:
       url: https://divadabeleza.com.br
@@ -278,9 +275,7 @@ sites:
 
     fontes:
       - tipo: google_news
-        consulta: "filme estreia cinema"
-      - tipo: google_news
-        consulta: "netflix serie lancamento streaming"
+        consulta: "cinema OR filme OR streaming OR serie"
 
     wordpress:
       url: https://cineartcafe.com.br
@@ -321,9 +316,7 @@ sites:
 
     fontes:
       - tipo: google_news
-        consulta: "pesca esportiva"
-      - tipo: google_news
-        consulta: "piracema defeso pesca"
+        consulta: "pesca OR pescaria OR pesca esportiva OR piracema"
 
     wordpress:
       url: https://pescaria.co
@@ -364,9 +357,7 @@ sites:
 
     fontes:
       - tipo: google_news
-        consulta: "CNH Detran transito"
-      - tipo: google_news
-        consulta: "multa transito CONTRAN lei"
+        consulta: "CNH OR Detran OR multa de transito OR IPVA"
 
     wordpress:
       url: https://guiadomotorista.com.br

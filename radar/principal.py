@@ -20,7 +20,10 @@ from .fontes import coleta
 from .normaliza import canoniza_url, hash_dedup, sem_acento, veiculo_de
 from .selecao import roda_selecao
 
-LIMITE_POR_FONTE = 40
+# 80 desde 18/09/2026: cada site passou de duas consultas para UMA (o campo da
+# aba Discovery e' o tema do site). Sem dobrar o teto, a consolidacao cortaria
+# a coleta pela metade. O feed do Google News entrega ate' 100 por busca.
+LIMITE_POR_FONTE = 80
 
 
 def detecta_cidade(titulo: str, cidades: list[str]) -> str | None:
