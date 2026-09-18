@@ -245,13 +245,17 @@ class Banco:
              .limit(1).execute())
         return r.data[0]["url_publicada"] if r.data else None
 
-    def pautas_para_satelite(self, site: str,
-                             inicio_dia_iso: str) -> tuple[list[dict], dict]:
-        """Devolve (candidatas, publicadas_por_hub): as pautas do dia com dado
-        proprio ainda aprovadas, por pontuacao, e quantas JA sairam por hub.
+    def pautas_para_satelite(self, site: str, inicio_dia_iso: str,
+                             exige_dado: bool = True) -> tuple[list[dict], dict]:
+        """Devolve (candidatas, publicadas_por_hub): as pautas do dia ainda
+        aprovadas, por pontuacao, e quantas JA sairam por hub.
         A POLITICA (teto por hub, horario, maduras primeiro) fica no fluxo —
         aqui e' so' leitura. Licao de 31/08: aplicar o teto aqui, antes do
-        filtro de horario, deixava pauta futura roubar a vaga da madura."""
+        filtro de horario, deixava pauta futura roubar a vaga da madura.
+
+        exige_dado=False atende os sites SEM base propria (os blogs Tihee):
+        la' nenhuma pauta tem dado_proprio e o filtro devolveria sempre vazio.
+        Ver radar/publicar.py."""
         if self.seco or not self.cliente:
             return [], {}
         ja = (self.cliente.table("pautas").select("hub")
@@ -261,13 +265,14 @@ class Banco:
         for p in (ja.data or []):
             h = p.get("hub") or "_"
             por[h] = por.get(h, 0) + 1
-        r = (self.cliente.table("pautas")
-             .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,pontuacao,"
-                     "horario_sugerido,itens(titulo,url,veiculo)")
-             .eq("site", site).eq("status", "aprovada")
-             .not_.is_("dado_proprio", "null")
-             .gte("selecionada_em", inicio_dia_iso)
-             .order("pontuacao", desc=True).execute())
+        consulta = (self.cliente.table("pautas")
+                    .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,"
+                            "pontuacao,horario_sugerido,itens(titulo,url,veiculo)")
+                    .eq("site", site).eq("status", "aprovada")
+                    .gte("selecionada_em", inicio_dia_iso))
+        if exige_dado:
+            consulta = consulta.not_.is_("dado_proprio", "null")
+        r = consulta.order("pontuacao", desc=True).execute()
         return list(r.data or []), por
 
     def marca_pauta_publicada(self, pauta_id: int) -> None:

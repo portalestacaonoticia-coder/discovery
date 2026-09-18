@@ -186,8 +186,22 @@ sites:
       - tipo: google_news
         consulta: "receita facil dia a dia"
 
+    # Senha de APLICATIVO do WP (Usuarios -> Perfil -> Senhas de aplicativo).
+    # Aqui vai so' o NOME da variavel; o valor fica no .env e nos secrets do
+    # GitHub Actions.
+    wordpress:
+      url: https://broune.com.br
+      usuario_env: WP_BROUNE_USUARIO
+      senha_env: WP_BROUNE_SENHA
+      categoria_por_hub: true
+
     publicacao:
-      radar: rascunho        # noticia de terceiro: sempre revisao humana
+      # auto (18/09/2026): a esteira destes blogs nao reescreve noticia — ela
+      # escreve GUIA DE SERVICO sobre o tema que a pauta apontou como quente
+      # (radar/gerador_artigo.py). Por isso o risco do README ("herdar o erro
+      # de quem apurou") nao se aplica aqui: nao ha' apuracao de terceiro
+      # sendo repetida. Voltar para 'rascunho' manda tudo como draft no WP.
+      radar: auto
 
   divadabeleza:
     dominio: divadabeleza.com.br
@@ -223,8 +237,14 @@ sites:
       - tipo: google_news
         consulta: "cabelo corte coloracao tendencia"
 
+    wordpress:
+      url: https://divadabeleza.com.br
+      usuario_env: WP_DIVADABELEZA_USUARIO
+      senha_env: WP_DIVADABELEZA_SENHA
+      categoria_por_hub: true
+
     publicacao:
-      radar: rascunho
+      radar: auto
 
   cineartcafe:
     dominio: cineartcafe.com.br
@@ -262,8 +282,14 @@ sites:
       - tipo: google_news
         consulta: "netflix serie lancamento streaming"
 
+    wordpress:
+      url: https://cineartcafe.com.br
+      usuario_env: WP_CINEARTCAFE_USUARIO
+      senha_env: WP_CINEARTCAFE_SENHA
+      categoria_por_hub: true
+
     publicacao:
-      radar: rascunho
+      radar: auto
 
   pescaria:
     dominio: pescaria.co
@@ -299,8 +325,14 @@ sites:
       - tipo: google_news
         consulta: "piracema defeso pesca"
 
+    wordpress:
+      url: https://pescaria.co
+      usuario_env: WP_PESCARIA_USUARIO
+      senha_env: WP_PESCARIA_SENHA
+      categoria_por_hub: true
+
     publicacao:
-      radar: rascunho
+      radar: auto
 
   guiadomotorista:
     dominio: guiadomotorista.com.br
@@ -336,5 +368,13 @@ sites:
       - tipo: google_news
         consulta: "multa transito CONTRAN lei"
 
+    wordpress:
+      url: https://guiadomotorista.com.br
+      usuario_env: WP_GUIADOMOTORISTA_USUARIO
+      senha_env: WP_GUIADOMOTORISTA_SENHA
+      categoria_por_hub: true
+
     publicacao:
-      radar: rascunho
+      # ATENCAO: em 10/09/2026 o site respondia HTTP 500 (fora do ar). Ate
+      # voltar, a publicacao aqui vai falhar e ficar registrada em execucoes.
+      radar: auto

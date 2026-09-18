@@ -8,7 +8,9 @@ on:
 jobs:
   rodar:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 30 min: a esteira dos blogs escreve com LLM e baixa imagem, entao a
+    # rodada ficou bem mais longa que a da coleta sozinha.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,8 +35,32 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+      # Esteira dos blogs SEM base propria (broune, divadabeleza, cineartcafe,
+      # pescaria, guiadomotorista): escreve o guia de servico do tema que a
+      # pauta apontou e publica com imagem destacada. Mesmo contrato dos
+      # satelites — teto por hub/dia e horario_sugerido —, entao rodar a cada
+      # 30 min nao empilha post. Sem ANTHROPIC_API_KEY nao escreve nada.
+      - run: python -m radar.publicar
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          WP_BROUNE_USUARIO: ${{ secrets.WP_BROUNE_USUARIO }}
+          WP_BROUNE_SENHA: ${{ secrets.WP_BROUNE_SENHA }}
+          WP_DIVADABELEZA_USUARIO: ${{ secrets.WP_DIVADABELEZA_USUARIO }}
+          WP_DIVADABELEZA_SENHA: ${{ secrets.WP_DIVADABELEZA_SENHA }}
+          WP_CINEARTCAFE_USUARIO: ${{ secrets.WP_CINEARTCAFE_USUARIO }}
+          WP_CINEARTCAFE_SENHA: ${{ secrets.WP_CINEARTCAFE_SENHA }}
+          WP_PESCARIA_USUARIO: ${{ secrets.WP_PESCARIA_USUARIO }}
+          WP_PESCARIA_SENHA: ${{ secrets.WP_PESCARIA_SENHA }}
+          WP_GUIADOMOTORISTA_USUARIO: ${{ secrets.WP_GUIADOMOTORISTA_USUARIO }}
+          WP_GUIADOMOTORISTA_SENHA: ${{ secrets.WP_GUIADOMOTORISTA_SENHA }}
       # Piso de publicacao: SEMPRE sai post. Depois da hora limite, se o dia
       # esta' zerado, publica a nota-reserva (100% da base). Quase sempre e'
       # um nao-fazer barato — conta os posts e sai.
@@ -45,5 +71,6 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}

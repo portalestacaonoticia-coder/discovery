@@ -144,6 +144,41 @@ O caminho que sustenta volume: **automatico onde o dado e' seu e verificavel**
 base), **rascunho onde o fato e' de outro**. Isso mantem a escala e tira do ar o
 risco que nao vale a pena correr.
 
+## Esteira dos blogs sem base propria
+
+`doll` e `ferrugem` tem base propria e esteira dedicada, que sabe usar o dado
+(`satelites.py`, `dolar_diario.py`, `ancoras.py`, `reserva.py`). Os blogs Tihee
+nao tem base — e por isso tem uma esteira propria:
+
+```bash
+python -m radar.publicar --seco            # escreve e mostra, nao publica
+python -m radar.publicar --site broune     # so' um site
+python -m radar.publicar                   # todos (roda no cron do radar.yml)
+```
+
+Entra neste fluxo quem tem bloco `wordpress` e **nao** tem `base` no
+`sites.yaml`. Ela pega as pautas que a selecao aprovou hoje e ja' estao maduras
+(horario vencido), respeita o teto por hub, escreve com o Claude e publica com
+imagem destacada. Cada pauta vira `publicada` e nao se repete.
+
+**O que ela escreve — e o que ela nao escreve.** `radar/gerador_artigo.py`
+produz um **guia de servico autonomo** sobre o tema do hub. A pauta do radar
+entra como *sinal de assunto* ("este tema esta' quente agora"), nao como
+materia-prima: o guia nao reescreve a noticia que o originou. O fato de
+terceiro so' aparece se for concreto, em uma frase, atribuido e com link — e
+o texto tem que se sustentar sem ele.
+
+E' isso que muda o calculo dos portoes para estes sites. O risco do quadro
+acima e' herdar o erro de quem apurou; aqui nao ha' apuracao de terceiro sendo
+repetida, entao `publicacao.radar: auto` se sustenta. Trocar por `rascunho`
+manda tudo para o WordPress como draft, sem mexer em codigo.
+
+**Sem `ANTHROPIC_API_KEY` esta esteira nao escreve nada** — de proposito. No
+doll um template ainda diz algo de verdade, porque existe a PTAX; aqui nao
+existe base, e template sem dado produz exatamente o texto de encheção que a
+politica de conteudo em escala do Google descreve. Vaga vazia e' melhor que
+post vazio.
+
 ## Imagem destacada — o que destrava o Google Discover
 
 O Discover e' uma superficie de **cards**. Sem imagem grande declarada, o post

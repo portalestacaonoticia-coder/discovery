@@ -1,0 +1,52 @@
+name: publicar (ensaio)
+
+# Ensaio da esteira dos blogs: escreve os guias de verdade (gasta cota do
+# Claude) e IMPRIME, mas nao grava no banco e NAO publica nada no WordPress.
+# E' o jeito de ver o que sairia antes de confiar no cron.
+#
+# Actions -> "publicar (ensaio)" -> Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Site (vazio = todos os blogs do fluxo generico)"
+        required: false
+        default: ""
+
+jobs:
+  ensaio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      # Portao barato: erro de sintaxe aparece aqui, antes de gastar LLM.
+      - name: compila tudo
+        run: python -m compileall -q radar/ *.py
+
+      - name: medidor de imagem (offline)
+        run: python testar_imagem.py
+
+      - name: ensaio da esteira
+        run: |
+          python -m radar.publicar --seco \
+            ${{ inputs.site && format('--site {0}', inputs.site) || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+
+      # Os guias ficam em saida/ — baixe o artefato para ler inteiro.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: guias-do-ensaio
+          path: saida/
+          if-no-files-found: ignore
