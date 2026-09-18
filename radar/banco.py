@@ -141,6 +141,33 @@ class Banco:
 
     # -- selecao automatica de pautas ---------------------------------------
 
+    def garante_meta(self, site: str, pautas_por_dia: int,
+                     wp_url: str | None) -> str:
+        """Cria a linha de `metas` do site se ela nao existir.
+
+        SEM essa linha a selecao automatica sai na primeira instrucao
+        (meta_do_site devolve None) e o site coleta pautas que nunca viram
+        nada. Foi o que segurou os 5 blogs em 18/09/2026.
+
+        NAO sobrescreve meta existente: pautas_por_dia e criterios sao
+        ajustados na aba Radar, e o configurador nao pode desfazer isso.
+        Preenche wp_url so' quando esta' vazio. Devolve 'criada', 'wp_url' ou
+        'ja existia'."""
+        if self.seco or not self.cliente:
+            print(f"  [seco] metas[{site}] = {pautas_por_dia}/dia, wp {wp_url}")
+            return "seco"
+        atual = self.meta_do_site(site)
+        if atual is None:
+            self.cliente.table("metas").insert({
+                "site": site, "pautas_por_dia": pautas_por_dia,
+                "wp_url": wp_url}).execute()
+            return "criada"
+        if wp_url and not atual.get("wp_url"):
+            (self.cliente.table("metas").update({"wp_url": wp_url})
+             .eq("site", site).execute())
+            return "wp_url"
+        return "ja existia"
+
     def meta_do_site(self, site: str) -> dict | None:
         if self.seco or not self.cliente:
             return None

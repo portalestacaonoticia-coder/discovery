@@ -33,6 +33,14 @@ jobs:
       - name: medidor de imagem (offline)
         run: python testar_imagem.py
 
+      # Sem linha em `metas` a selecao nao roda e a fila nunca vira artigo.
+      # Idempotente: meta existente nao e' tocada.
+      - name: garante as metas
+        run: python -m radar.configurar_metas
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
       - name: ensaio da esteira
         run: |
           python -m radar.publicar --seco \
