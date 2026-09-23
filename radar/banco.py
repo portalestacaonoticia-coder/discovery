@@ -184,13 +184,28 @@ class Banco:
              .order("criado_em", desc=True).limit(limite).execute())
         return r.data or []
 
+    @staticmethod
+    def _fim_do_dia(inicio_dia_iso: str) -> str:
+        """24h depois do inicio do dia — o LIMITE SUPERIOR das consultas de
+        'hoje'.
+
+        Sem ele, `selecionada_em >= inicio do dia` tambem pega o FUTURO. Isso
+        nao incomodava enquanto o unico jeito de selecionar era o cron (que
+        sempre grava o instante atual), mas o calendario da tela Discovery
+        grava pauta datada para os proximos dias: sem o teto, um plano de 7
+        dias contaria como 7 selecionadas hoje e zeraria as vagas do radar de
+        noticias no mesmo instante em que fosse salvo."""
+        from datetime import datetime, timedelta
+        return (datetime.fromisoformat(inicio_dia_iso) + timedelta(days=1)).isoformat()
+
     def fatos_selecionados_hoje(self, site: str, inicio_dia_iso: str) -> set:
         """item_ids das pautas ja escolhidas hoje (inclusive as vetadas depois):
         o mesmo fato nao volta por outro angulo na reposicao."""
         if self.seco or not self.cliente:
             return set()
         r = (self.cliente.table("pautas").select("item_id")
-             .eq("site", site).gte("selecionada_em", inicio_dia_iso).execute())
+             .eq("site", site).gte("selecionada_em", inicio_dia_iso)
+             .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)).execute())
         return {l["item_id"] for l in (r.data or []) if l.get("item_id")}
 
     def selecionadas_hoje(self, site: str, inicio_dia_iso: str) -> int:
@@ -198,7 +213,8 @@ class Banco:
             return 0
         r = (self.cliente.table("pautas").select("id", count="exact")
              .eq("site", site).eq("status", "aprovada")
-             .gte("selecionada_em", inicio_dia_iso).execute())
+             .gte("selecionada_em", inicio_dia_iso)
+             .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)).execute())
         return r.count or 0
 
     def hubs_selecionados_hoje(self, site: str, inicio_dia_iso: str) -> dict:
@@ -208,7 +224,8 @@ class Banco:
             return {}
         r = (self.cliente.table("pautas").select("hub,status")
              .eq("site", site).in_("status", ["aprovada", "publicada"])
-             .gte("selecionada_em", inicio_dia_iso).execute())
+             .gte("selecionada_em", inicio_dia_iso)
+             .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)).execute())
         por: dict = {}
         for p in (r.data or []):
             h = p.get("hub") or "_"
@@ -221,6 +238,7 @@ class Banco:
             return None
         r = (self.cliente.table("pautas").select("horario_sugerido")
              .eq("site", site).gte("selecionada_em", inicio_dia_iso)
+             .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso))
              .not_.is_("horario_sugerido", "null")
              .order("horario_sugerido", desc=True).limit(1).execute())
         return r.data[0]["horario_sugerido"] if r.data else None
@@ -287,7 +305,8 @@ class Banco:
             return [], {}
         ja = (self.cliente.table("pautas").select("hub")
               .eq("site", site).eq("status", "publicada")
-              .gte("selecionada_em", inicio_dia_iso).execute())
+              .gte("selecionada_em", inicio_dia_iso)
+              .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)).execute())
         por: dict[str, int] = {}
         for p in (ja.data or []):
             h = p.get("hub") or "_"
@@ -296,7 +315,8 @@ class Banco:
                     .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,"
                             "pontuacao,horario_sugerido,itens(titulo,url,veiculo)")
                     .eq("site", site).eq("status", "aprovada")
-                    .gte("selecionada_em", inicio_dia_iso))
+                    .gte("selecionada_em", inicio_dia_iso)
+                    .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)))
         if exige_dado:
             consulta = consulta.not_.is_("dado_proprio", "null")
         r = consulta.order("pontuacao", desc=True).execute()
