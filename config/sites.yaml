@@ -183,7 +183,7 @@ sites:
       # "receitas para marmitas congeladas" so' alimentaria receitas-rapidas e
       # pratos-principais — doces-sobremesas e datas-festas ficariam vazios.
       - tipo: google_news
-        consulta: "receitas OR marmitas congeladas OR sobremesas OR receitas de festa"
+        consulta: "receitas OR marmitas congeladas"
 
     # Senha de APLICATIVO do WP (Usuarios -> Perfil -> Senhas de aplicativo).
     # Aqui vai so' o NOME da variavel; o valor fica no .env e nos secrets do
