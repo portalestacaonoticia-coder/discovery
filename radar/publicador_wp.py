@@ -97,20 +97,41 @@ def markdown_para_html(md: str) -> str:
     return html
 
 
+def _json_ou_nada(r):
+    """O JSON do corpo, ou None se nao vier JSON nenhum.
+
+    WordPress doente responde 200 com corpo VAZIO (ou HTML de erro do
+    servidor), e `r.json()` nisso levanta JSONDecodeError. Em 23/09 foi assim
+    que o guiadomotorista — no ar, mas devolvendo 500/vazio — derrubou a rodada
+    inteira dele com 'Expecting value: line 1 column 1' em vez de reportar o
+    erro como os outros sites reportaram o 401 deles."""
+    try:
+        return r.json()
+    except ValueError:      # JSONDecodeError herda de ValueError
+        return None
+
+
 def _categoria_id(base: str, cab: dict, nome: str) -> int | None:
     """Acha a categoria do hub, cria se nao existir. Categoria = hub mantem o
-    cluster arrumado sem trabalho manual."""
-    r = requests.get(f"{base}/wp-json/wp/v2/categories", headers=cab,
-                     params={"search": nome, "per_page": 10}, timeout=TEMPO_LIMITE)
-    r.raise_for_status()
-    for c in r.json():
-        if c["name"].lower() == nome.lower():
-            return c["id"]
-    r = requests.post(f"{base}/wp-json/wp/v2/categories", headers=cab,
-                      json={"name": nome}, timeout=TEMPO_LIMITE)
-    if r.status_code >= 400:
+    cluster arrumado sem trabalho manual.
+
+    NUNCA levanta: categoria e' enfeite e o post sai sem ela. Site com problema
+    nao pode impedir a publicacao por causa de uma taxonomia."""
+    try:
+        r = requests.get(f"{base}/wp-json/wp/v2/categories", headers=cab,
+                         params={"search": nome, "per_page": 10}, timeout=TEMPO_LIMITE)
+        if r.status_code < 400:
+            for c in (_json_ou_nada(r) or []):
+                if isinstance(c, dict) and str(c.get("name", "")).lower() == nome.lower():
+                    return c.get("id")
+        r = requests.post(f"{base}/wp-json/wp/v2/categories", headers=cab,
+                          json={"name": nome}, timeout=TEMPO_LIMITE)
+        if r.status_code >= 400:
+            return None
+        return (_json_ou_nada(r) or {}).get("id")
+    except Exception as erro:
+        print(f"  [categoria] nao consegui resolver '{nome}': {erro}")
         return None
-    return r.json().get("id")
 
 
 def _nome_arquivo(titulo: str, tipo: str) -> str:
@@ -243,7 +264,13 @@ def publica(artigo: dict, wp: dict, site: dict | None = None) -> dict:
     r = requests.post(url, headers=cab, json=corpo, timeout=TEMPO_LIMITE)
     if r.status_code >= 400:
         raise ErroWordPress(f"{r.status_code}: {r.text[:300]}")
-    dados = r.json()
+    # 200 com corpo impronunciavel tambem e' falha de publicacao — so' que
+    # disfarcada. Vira ErroWordPress para a esteira tratar como as outras, em
+    # vez de estourar JSONDecodeError e derrubar o site inteiro da rodada.
+    dados = _json_ou_nada(r)
+    if not isinstance(dados, dict) or "id" not in dados:
+        raise ErroWordPress(
+            f"HTTP {r.status_code} sem JSON de post: {(r.text or '').strip()[:200] or 'corpo vazio'}")
     return {"id": dados["id"], "link": dados.get("link"),
             "status": dados.get("status"), "midia_id": midia_id,
             "imagem_url": imagem_url, "imagem_credito": imagem_credito}
