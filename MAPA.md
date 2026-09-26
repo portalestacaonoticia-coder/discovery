@@ -49,6 +49,9 @@ radar/
 │   ├── satelites.py         ← entrypoint dos satelites: pautas com dado proprio,
 │   │                         no maximo 1 por hub/dia, respeitando horario_sugerido.
 │   │                         Roda no cron do radar (30min, todos os dias).
+│   ├── rascunhos.py         ← guia escrito e nunca publicado (WP recusou no dia)
+│   │                         vai para o WP como RASCUNHO, sem chamar o Claude.
+│   │                         Manual: `python -m radar.rascunhos` / workflow.
 │   ├── reserva.py           ← PISO de publicacao (regra: sempre sai post). Depois
 │   │                         das 17h SP, dia zerado = publica a nota-reserva
 │   │                         (100% da base). Config: sites.yaml publicacao.piso.
@@ -76,6 +79,7 @@ radar/
 │                             Um upload por site; cada site ve os proprios dados.
 ├── saida/                  ← artigos gerados (.md + .jsonld), prontos para o CMS
 └── .github/workflows/
+    ├── rascunhos.yml       ← manual: guias antigos para o WP como rascunho
     ├── radar.yml           ← rodada do radar, de 30 em 30 min. Sem schedule
     │                         proprio: quem dispara e' o cron da Vercel (radar-web)
     ├── configurar-wp.yml   ← manual: braco remoto do configurar_wp

@@ -158,6 +158,19 @@ python -m radar.publicar --site broune     # so' um site
 python -m radar.publicar                   # todos (roda no cron do radar.yml)
 ```
 
+Guia que ficou escrito e nunca publicado (o WP recusou naquele dia, e a
+esteira so' olha as pautas do dia corrente) vai para o WordPress como
+**rascunho**, sem chamar o Claude de novo, para o editor ler e publicar na mao:
+
+```bash
+python -m radar.rascunhos --seco           # lista o estoque, nao envia
+python -m radar.rascunhos --site pescaria  # envia so' um site
+python -m radar.rascunhos                  # todos os blogs
+```
+
+No GitHub, o workflow **rascunhos (guias antigos para o WP)** faz o mesmo
+(Actions -> Run workflow); deixe `seco` marcado na primeira vez.
+
 Entra neste fluxo quem tem bloco `wordpress` e **nao** tem `base` no
 `sites.yaml`. Ela pega as pautas que a selecao aprovou hoje e ja' estao maduras
 (horario vencido), respeita o teto por hub, escreve com o Claude e publica com

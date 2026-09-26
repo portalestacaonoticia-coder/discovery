@@ -349,6 +349,20 @@ class Banco:
         r = consulta.order("pontuacao", desc=True).execute()
         return list(r.data or []), por
 
+    def pautas_aprovadas_antes(self, site: str, inicio_dia_iso: str) -> list[dict]:
+        """Pautas 'aprovada' selecionadas ANTES de hoje: as que a esteira
+        (que so' olha o dia corrente) nunca mais vai pegar. Sao as orfas do
+        periodo em que o WP recusava (18 a 26/09/2026): guia escrito e salvo
+        em `artigos`, nunca enviado. Ver radar/rascunhos.py."""
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("pautas")
+             .select("id,hub,titulo_sug,pontuacao,selecionada_em")
+             .eq("site", site).eq("status", "aprovada")
+             .lt("selecionada_em", inicio_dia_iso)
+             .order("selecionada_em", desc=False).execute())
+        return list(r.data or [])
+
     def marca_pauta_publicada(self, pauta_id: int) -> None:
         """A pauta vira 'publicada' — some da fila de satelites e nao se
         repete. A URL do post fica no artigo (tabela artigos), nao aqui."""
