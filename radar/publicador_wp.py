@@ -134,6 +134,17 @@ def _categoria_id(base: str, cab: dict, nome: str) -> int | None:
         return None
 
 
+def _categorias_do_hub(site: dict | None, hub_id: str) -> list[str]:
+    """Categorias do WordPress escolhidas para o hub (sites.yaml ->
+    hubs[].categorias, editavel na aba Discovery do conteudo.tihee). Lista
+    vazia ou ausente = padrao antigo: uma categoria com o id do hub."""
+    for h in (site or {}).get("hubs", []) or []:
+        if h.get("id") == hub_id:
+            nomes = [str(c).strip() for c in (h.get("categorias") or [])]
+            return [n for n in nomes if n]
+    return []
+
+
 def _nome_arquivo(titulo: str, tipo: str) -> str:
     """Slug ASCII + extensao. O WP usa o nome do arquivo na URL da midia, e
     acento ali vira %C3%A3 no og:image."""
@@ -251,9 +262,17 @@ def publica(artigo: dict, wp: dict, site: dict | None = None) -> dict:
         corpo["featured_media"] = midia_id
 
     if artigo.get("hub") and wp.get("categoria_por_hub", True):
-        cid = _categoria_id(base, cab, artigo["hub"])
-        if cid:
-            corpo["categories"] = [cid]
+        # As categorias escolhidas na aba Discovery; sem escolha, a categoria
+        # com o nome do hub (comportamento original). Cada nome e' resolvido
+        # (ou criado) no WP; o que nao resolver e' pulado, nunca derruba o post.
+        nomes = _categorias_do_hub(site, artigo["hub"]) or [artigo["hub"]]
+        ids = []
+        for nome in nomes:
+            cid = _categoria_id(base, cab, nome)
+            if cid and cid not in ids:
+                ids.append(cid)
+        if ids:
+            corpo["categories"] = ids
 
     post_id = artigo.get("wp_post_id")
     if post_id:
