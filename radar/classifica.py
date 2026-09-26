@@ -3,14 +3,19 @@
 Dois modos, na ordem: se ANTHROPIC_API_KEY existir, usa o modelo; se nao,
 cai no modo por palavra-chave. O radar funciona sem chave nenhuma — a chave
 so' melhora a qualidade da leitura.
+
+A chamada ao modelo passa pela ponte `llm.py` (mesmo modelo e mesmo registro
+de falhas do resto do radar). Ate 26/09/2026 este arquivo criava o proprio
+cliente com um modelo mais caro e engolia a excecao — um 429 aqui sumia sem
+deixar rastro.
 """
 from __future__ import annotations
 
 import json
 import re
 
+from . import llm
 from .angulos import angulos_possiveis
-from .config import env
 from .normaliza import sem_acento
 
 
@@ -30,12 +35,9 @@ def classifica_por_termo(titulo: str, site: dict) -> tuple[str | None, int]:
 
 
 def classifica_por_llm(titulo: str, resumo: str, site: dict) -> dict | None:
-    chave = env("ANTHROPIC_API_KEY")
-    if not chave:
-        return None
-    try:
-        import anthropic
-    except ImportError:
+    """Leitura do modelo, ou None (sem chave, erro de API ou resposta sem
+    JSON) — e ai' o chamador cai no modo por termo."""
+    if not llm.tem_chave():
         return None
 
     hubs = "\n".join(f"- {h['id']}: {h['titulo']}" for h in site.get("hubs", []))
@@ -47,15 +49,15 @@ def classifica_por_llm(titulo: str, resumo: str, site: dict) -> dict | None:
         "\"lugar\": \"cidade citada ou null\", \"publico\": \"quem e' afetado, "
         "em 3 palavras\", \"prioridade\": 0-10}"
     )
+    texto = llm.gera(prompt, max_tokens=300)
+    if not texto:
+        return None
+    bruto = re.search(r"\{.*\}", texto, re.S)
+    if not bruto:
+        return None
     try:
-        cliente = anthropic.Anthropic(api_key=chave)
-        r = cliente.messages.create(model="claude-sonnet-4-5", max_tokens=300,
-                                    messages=[{"role": "user", "content": prompt}])
-        texto = r.content[0].text
-        bruto = re.search(r"\{.*\}", texto, re.S)
-        return json.loads(bruto.group(0)) if bruto else None
-    except Exception:
-        # Classificacao e' melhoria, nao dependencia: falhou, cai no modo por termo.
+        return json.loads(bruto.group(0))
+    except json.JSONDecodeError:
         return None
 
 

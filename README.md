@@ -33,7 +33,9 @@ python -m radar.principal                   # todos
 ```
 
 No Supabase, rodar `sql/schema.sql` uma vez. Em producao, o
-`.github/workflows/radar.yml` roda a cada 30 minutos — os segredos vao em
+`.github/workflows/radar.yml` roda a cada 30 minutos, disparado pelo cron da
+Vercel (`radar-web/api/tick-radar.ts`; o workflow nao tem `schedule` proprio,
+para nao rodar em dobro) — os segredos vao em
 Settings → Secrets → Actions (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
 `DISCORD_WEBHOOK`, `ANTHROPIC_API_KEY`).
 

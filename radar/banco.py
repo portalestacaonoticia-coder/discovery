@@ -36,6 +36,33 @@ class Banco:
         r = self.cliente.table("itens").insert(item).execute()
         return r.data[0]["id"] if r.data else None
 
+    _aviso_descarte_dado = False
+
+    def grava_descarte(self, item: dict) -> None:
+        """Item que o classificador julgou IRRELEVANTE. Entra em `itens` com
+        relevante=false so' para o hash ficar registrado: no proximo ciclo
+        `item_existe` o pula e o modelo nao le a mesma noticia de novo.
+
+        Ate 26/09/2026 o descarte nao era gravado, e a mesma manchete
+        irrelevante voltava do feed e passava pelo Claude a cada 30 min,
+        enquanto ficasse no Google News — era o maior gasto silencioso do
+        radar. Nao gera pauta e nao aparece no painel (que le `itens` so'
+        atraves das pautas).
+
+        Sem a coluna (migration sql/itens-relevante-2026-09.sql ainda nao
+        aplicada) avisa UMA vez e segue: o radar volta ao comportamento
+        antigo, nunca quebra por causa disso."""
+        if self.seco:
+            self._memoria.add(item["hash_dedup"])
+            return
+        try:
+            self.cliente.table("itens").insert({**item, "relevante": False}).execute()
+        except Exception as erro:
+            if not Banco._aviso_descarte_dado:
+                Banco._aviso_descarte_dado = True
+                print(f"  aviso: descarte nao gravado ({str(erro)[:160]}) — "
+                      f"aplique sql/itens-relevante-2026-09.sql no Supabase")
+
     # -- pautas --------------------------------------------------------------
 
     def grava_pauta(self, pauta: dict) -> None:

@@ -1,9 +1,12 @@
 name: radar
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"   # a cada 30 min (UTC). Pauta quente nao espera hora cheia.
-  workflow_dispatch:          # botao manual para testar
+  # SEM `schedule` aqui (26/09/2026). O relogio e' o cron da Vercel
+  # (radar-web/vercel.json -> api/tick-radar.ts), que dispara este workflow
+  # por workflow_dispatch a cada 30 min. Com os dois ligados a rodada saia
+  # em dobro quando o cron do GitHub (atrasado e irregular) coincidia com o
+  # da Vercel — e cada rodada dobrada era custo de API dobrado.
+  workflow_dispatch:          # Vercel (tick-radar) + botao manual para testar
 
 jobs:
   rodar:

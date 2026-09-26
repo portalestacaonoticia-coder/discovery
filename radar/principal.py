@@ -12,6 +12,7 @@ import re
 import sys
 from datetime import datetime, timezone
 
+from . import llm
 from .alerta import avisa
 from .banco import Banco
 from .classifica import avalia, sugere
@@ -74,7 +75,7 @@ def dado_proprio(banco: Banco, nome_site: str, site: dict, titulo: str,
 
 def roda_site(nome: str, site: dict, banco: Banco) -> dict:
     print(f"\n=== {nome} ({site['dominio']}) ===")
-    novos = pautas = 0
+    novos = pautas = descartados = 0
 
     for fonte in site.get("fontes", []):
         try:
@@ -88,11 +89,7 @@ def roda_site(nome: str, site: dict, banco: Banco) -> dict:
             if banco.item_existe(nome, h):
                 continue
 
-            leitura = avalia(cru["titulo"], cru.get("resumo", ""), site)
-            if not leitura["relevante"]:
-                continue
-
-            item_id = banco.grava_item({
+            registro = {
                 "site": nome,
                 "titulo": cru["titulo"],
                 "url": cru["url"],
@@ -101,7 +98,17 @@ def roda_site(nome: str, site: dict, banco: Banco) -> dict:
                 "veiculo": veiculo_de(cru["url"]),
                 "resumo": (cru.get("resumo") or "")[:500],
                 "publicado_em": cru["publicado_em"].isoformat() if cru.get("publicado_em") else None,
-            })
+            }
+
+            leitura = avalia(cru["titulo"], cru.get("resumo", ""), site)
+            if not leitura["relevante"]:
+                # Grava o descarte para nao reclassificar a mesma manchete
+                # (e pagar o modelo de novo) a cada ciclo. Ver banco.grava_descarte.
+                banco.grava_descarte(registro)
+                descartados += 1
+                continue
+
+            item_id = banco.grava_item(registro)
             novos += 1
 
             dado = dado_proprio(banco, nome, site, cru["titulo"], leitura)
@@ -116,8 +123,8 @@ def roda_site(nome: str, site: dict, banco: Banco) -> dict:
                 })
                 pautas += 1
 
-    print(f"  {novos} itens novos, {pautas} pautas geradas")
-    return {"site": nome, "itens": novos, "pautas": pautas}
+    print(f"  {novos} itens novos, {pautas} pautas geradas, {descartados} descartados")
+    return {"site": nome, "itens": novos, "pautas": pautas, "descartados": descartados}
 
 
 def main() -> int:
@@ -138,6 +145,7 @@ def main() -> int:
     falhas = 0
     for nome, cfg in sites.items():
         inicio = datetime.now(timezone.utc)
+        llm.limpa_falhas()   # falha de API e' contada por site, no resumo
         try:
             r = roda_site(nome, cfg, banco)
         except Exception as erro:
@@ -160,7 +168,9 @@ def main() -> int:
         banco.registra_execucao({
             "fluxo": "radar", "site": nome, "status": "ok",
             "resumo": f"{r['itens']} itens novos, {r['pautas']} pautas"
-                      + (f", {selecionadas} selecionadas" if selecionadas else ""),
+                      + (f", {selecionadas} selecionadas" if selecionadas else "")
+                      + (f", {r['descartados']} descartados" if r["descartados"] else "")
+                      + llm.resumo_falhas(),
             "inicio": inicio.isoformat(),
         })
 

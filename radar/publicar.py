@@ -28,6 +28,7 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+from . import llm
 from .alerta import avisa
 from .banco import Banco
 from .config import RAIZ, carrega_sites
@@ -75,6 +76,22 @@ def maduras(candidatas: list[dict], por_hub: dict, teto: int) -> tuple[list[dict
     return escolhidas, em_espera
 
 
+def reaproveita(existente: dict | None) -> dict | None:
+    """O artigo salvo em `artigos`, no formato que `monta` devolve — ou None
+    se nao ha' texto util (nunca foi escrito, ou ficou aquem do portao de
+    qualidade do gerador). Artigo ja' 'publicada' tambem volta: rerodar e'
+    atualizar o mesmo post, nunca reescrever."""
+    if not existente:
+        return None
+    corpo = (existente.get("corpo_md") or "").strip()
+    titulo = (existente.get("titulo") or "").strip()
+    if not titulo or len(corpo) < 1200:
+        return None
+    return {"titulo": titulo, "markdown": corpo,
+            "resumo": existente.get("resumo") or corpo.split("\n\n")[0][:280],
+            "jsonld": existente.get("jsonld")}
+
+
 def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
     print(f"\n=== {nome} ({site['dominio']}) ===")
     inicio = datetime.now(timezone.utc)
@@ -104,7 +121,19 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
     publicados = falhas = 0
 
     for pt in pautas:
-        art = monta(pt, site, leia_tambem)
+        ref = f"guia-{pt['id']}"
+        # IDEMPOTENTE: o guia ja' escrito numa rodada anterior (e que nao
+        # chegou ao WP — 401 de credencial, site fora do ar) e' reaproveitado
+        # do banco. So' chama o Claude quando NAO ha' texto salvo. Antes de
+        # 26/09/2026 cada ciclo de 30 min reescrevia os mesmos 12 guias
+        # enquanto o WP recusasse — o maior custo de API do radar.
+        existente = leitor.artigo_existente(nome, "guia", ref)
+        art = reaproveita(existente)
+        reaproveitado = art is not None
+        if reaproveitado:
+            print(f"  [reaproveitado] {ref}: {art['titulo']}")
+        else:
+            art = monta(pt, site, leia_tambem)
         if not art:
             # Sem chave, ou saida rasa demais: a pauta fica aprovada e tenta
             # de novo no proximo ciclo. Melhor vaga vazia que post vazio.
@@ -112,7 +141,6 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
             falhas += 1
             continue
 
-        ref = f"guia-{pt['id']}"
         (SAIDA / f"{nome}-{ref}.md").write_text(art["markdown"], encoding="utf-8")
 
         if args.seco:
@@ -125,13 +153,14 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
         # 'publicada' aqui deixa no banco artigo que nunca foi ao ar: foi o que
         # aconteceu no primeiro ensaio de 18/09, com os 401 de credencial.
         status = "aprovada" if pode_publicar else "rascunho"
-        banco.grava_artigo({
-            "site": nome, "tipo": "guia", "hub": pt.get("hub"),
-            "titulo": art["titulo"], "resumo": art["resumo"],
-            "corpo_md": art["markdown"], "jsonld": art["jsonld"],
-            "status": status, "motivo_portao": f"guia da pauta {pt['id']}",
-            "referencia": ref,
-        })
+        if not reaproveitado:
+            banco.grava_artigo({
+                "site": nome, "tipo": "guia", "hub": pt.get("hub"),
+                "titulo": art["titulo"], "resumo": art["resumo"],
+                "corpo_md": art["markdown"], "jsonld": art["jsonld"],
+                "status": status, "motivo_portao": f"guia da pauta {pt['id']}",
+                "referencia": ref,
+            })
         print(f"  [{status}] {art['titulo']}")
 
         if args.sem_publicar:
@@ -139,7 +168,6 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
 
         from .publicador_wp import ErroWordPress, publica
         wp = site["wordpress"]
-        existente = banco.artigo_existente(nome, "guia", ref)
         try:
             resultado = publica({
                 "titulo": art["titulo"], "corpo_md": art["markdown"],
@@ -180,7 +208,8 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
             "status": "erro" if falhas and not publicados else "ok",
             "resumo": f"{publicados} no ar"
                       + (f", {falhas} falharam" if falhas else "")
-                      + (f" ({em_espera} aguardando slot)" if em_espera else ""),
+                      + (f" ({em_espera} aguardando slot)" if em_espera else "")
+                      + llm.resumo_falhas(),
             "inicio": inicio.isoformat()})
     return {"site": nome, "publicados": publicados, "falhas": falhas}
 
@@ -217,6 +246,7 @@ def main() -> int:
     banco = Banco(seco=args.seco)
     resumo, falhas = [], 0
     for nome, cfg in sites.items():
+        llm.limpa_falhas()
         try:
             r = roda_site(nome, cfg, banco, args)
         except Exception as erro:

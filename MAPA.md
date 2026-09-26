@@ -41,6 +41,8 @@ radar/
 │   │                         mesma pagina). `python -m radar.ancoras`
 │   ├── llm.py              ← ponte unica com o Claude (sonnet-5). Melhoria, nunca
 │   │                         dependencia: sem chave/SDK devolve None (fallback).
+│   │                         Erro da API vai para o log e para o resumo em
+│   │                         `execucoes` (resumo_falhas), nunca e' engolido.
 │   ├── gerador_satelite.py ← artigo-satelite: escrito pelo Claude quando ha chave
 │   │                         (titulos unicos, fato atribuido a fonte, dado proprio,
 │   │                         link ancora); template como fallback.
@@ -74,7 +76,8 @@ radar/
 │                             Um upload por site; cada site ve os proprios dados.
 ├── saida/                  ← artigos gerados (.md + .jsonld), prontos para o CMS
 └── .github/workflows/
-    ├── radar.yml           ← cron do radar, de 30 em 30 min
+    ├── radar.yml           ← rodada do radar, de 30 em 30 min. Sem schedule
+    │                         proprio: quem dispara e' o cron da Vercel (radar-web)
     ├── configurar-wp.yml   ← manual: braco remoto do configurar_wp
     └── dolar.yml           ← cron do artigo de cotacao, dias uteis 14h10 (Brasilia)
 ```
