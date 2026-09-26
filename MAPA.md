@@ -43,6 +43,8 @@ radar/
 │   │                         dependencia: sem chave/SDK devolve None (fallback).
 │   │                         Erro da API vai para o log e para o resumo em
 │   │                         `execucoes` (resumo_falhas), nunca e' engolido.
+│   │                         gera_com_busca(): texto + citacoes, com a busca
+│   │                         da API restrita aos dominios das fontes do hub.
 │   ├── gerador_satelite.py ← artigo-satelite: escrito pelo Claude quando ha chave
 │   │                         (titulos unicos, fato atribuido a fonte, dado proprio,
 │   │                         link ancora); template como fallback.

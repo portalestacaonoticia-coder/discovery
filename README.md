@@ -91,6 +91,14 @@ Copiar um bloco de `config/sites.yaml` e trocar:
 4. `base` — `eventos`, `cotacoes` ou uma tabela nova em `sql/schema.sql`. Sem
    base propria o site so' produz angulo editorial.
 5. `moldes` (opcional) — sobrescreve o titulo de um angulo so' naquele site.
+6. `fontes` no hub (opcional) — fontes OFICIAIS, `nome` + `url`, que fecham
+   cada guia num bloco fixo "Fontes e onde conferir". O bloco e' montado pelo
+   codigo, nunca pelo modelo: referencia escrita por LLM sem ter lido nada e'
+   referencia inventada. Hub sem `fontes` sai sem o bloco.
+   Com `fontes`, o gerador tambem LIGA a busca na web da API, restrita a esses
+   dominios: o modelo le a fonte oficial antes de afirmar prazo, lei ou valor,
+   e as paginas que ele citou entram primeiro no bloco. `pesquisa:` no hub
+   acrescenta dominios; `pesquisa: false` no site desliga a busca.
 
 ## Pauta de calendario pronta: cotacao do dolar
 

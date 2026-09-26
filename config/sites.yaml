@@ -141,6 +141,19 @@ sites:
         apos_hora: 17    # hora de Sao Paulo a partir da qual o piso e' cobrado
 
   # ── Blogs Tihee (setembro/2026) ─────────────────────────────────────────
+  #
+  # `fontes` no hub (26/09/2026) = fontes OFICIAIS que fecham cada guia no
+  # bloco fixo "Fontes e onde conferir" (radar/gerador_artigo.py). O bloco e'
+  # montado pelo codigo, nunca pelo modelo: so' entra o que esta' aqui. Hub
+  # sem `fontes` sai sem o bloco. CONFERIR cada URL antes de ligar — a lista
+  # abaixo e' a proposta inicial, com enderecos raiz dos orgaos.
+  #
+  # BUSCA DURANTE A ESCRITA (26/09/2026): hub com `fontes` liga a busca na web
+  # da API do Claude restrita aos dominios dessas fontes (subdominios inclusos:
+  # 'gov.br' alcanca detran.*.gov.br). O modelo le a fonte antes de afirmar
+  # prazo, lei ou valor, e o que ele CITOU entra no bloco de fontes. Custo:
+  # ~US$ 0,05 a mais por guia. `pesquisa:` no hub acrescenta dominios sem
+  # virar link no bloco; `pesquisa: false` no site desliga a busca inteira.
   # Sem base propria por enquanto: so' angulo editorial (o radar nao sugere
   # angulo de dado quando a base nao existe — ver README). Base propria de
   # cada um fica como evolucao (ex.: precos de ingredientes no broune,
@@ -214,16 +227,27 @@ sites:
         url: /cabelos
         termos: [cabelo, cabelos, corte, coloracao, coloração, tintura, hidratacao, hidratação, penteado, mecha, mechas]
         imagem: "hair salon styling"
+        fontes:
+          - nome: "Sociedade Brasileira de Dermatologia"
+            url: https://www.sbd.org.br
       - id: skincare
         titulo: "Pele e skincare"
         url: /skincare
         termos: [pele, skincare, acne, protetor solar, hidratante, rugas, dermatologista, serum, sérum, rotina]
         imagem: "skincare routine face"
+        fontes:
+          - nome: "Sociedade Brasileira de Dermatologia"
+            url: https://www.sbd.org.br
+          - nome: "Anvisa"
+            url: https://www.gov.br/anvisa/pt-br
       - id: maquiagem
         titulo: "Maquiagem"
         url: /maquiagem
         termos: [maquiagem, make, batom, base, rimel, rímel, sombra, blush, delineador]
         imagem: "makeup cosmetics beauty"
+        fontes:
+          - nome: "Anvisa"
+            url: https://www.gov.br/anvisa/pt-br
       - id: tendencias-beleza
         titulo: "Tendências de beleza"
         url: /tendencias
@@ -257,6 +281,9 @@ sites:
         url: /estreias
         termos: [estreia, estreias, lancamento, lançamento, trailer, bilheteria, cinema, cinemas]
         imagem: "cinema movie theater screen"
+        fontes:
+          - nome: "Ancine"
+            url: https://www.gov.br/ancine/pt-br
       - id: streaming
         titulo: "Filmes e séries no streaming"
         url: /streaming
@@ -267,6 +294,9 @@ sites:
         url: /premiacoes
         termos: [oscar, globo de ouro, palma de ouro, festival, indicacao, indicação, premio, prêmio, cannes, veneza]
         imagem: "film award trophy red carpet"
+        fontes:
+          - nome: "Academy of Motion Picture Arts and Sciences (Oscar)"
+            url: https://www.oscars.org
       - id: bastidores
         titulo: "Bastidores e elenco"
         url: /bastidores
@@ -303,16 +333,27 @@ sites:
         url: /especies
         termos: [tucunare, tucunaré, dourado, tilapia, tilápia, traira, traíra, pirarucu, robalo, tambaqui, especie, espécie, peixe]
         imagem: "freshwater fish river"
+        fontes:
+          - nome: "ICMBio"
+            url: https://www.gov.br/icmbio/pt-br
       - id: legislacao
         titulo: "Defeso, piracema e legislação"
         url: /legislacao
         termos: [defeso, piracema, ibama, licenca, licença, fiscalizacao, fiscalização, proibicao, proibição, portaria, cota]
         imagem: "river nature conservation"
+        fontes:
+          - nome: "IBAMA"
+            url: https://www.gov.br/ibama/pt-br
+          - nome: "Ministério da Pesca e Aquicultura"
+            url: https://www.gov.br/mpa/pt-br
       - id: torneios-destinos
         titulo: "Torneios e destinos de pesca"
         url: /torneios-e-destinos
         termos: [torneio, campeonato, competicao, competição, pesca esportiva, pesqueiro, destino, rio, represa]
         imagem: "sport fishing boat lake"
+        fontes:
+          - nome: "Ministério da Pesca e Aquicultura"
+            url: https://www.gov.br/mpa/pt-br
 
     fontes:
       - tipo: google_news
@@ -339,21 +380,39 @@ sites:
         url: /cnh
         termos: [cnh, habilitacao, habilitação, detran, autoescola, exame, carteira de motorista, renovacao, renovação, categoria]
         imagem: "driving lesson car steering wheel"
+        fontes:
+          - nome: "Senatran (Ministério dos Transportes)"
+            url: https://www.gov.br/transportes/pt-br
+          - nome: "Portal Gov.br"
+            url: https://www.gov.br
       - id: multas-leis
         titulo: "Multas e leis de trânsito"
         url: /multas-e-leis
         termos: [multa, multas, radar, lei seca, codigo de transito, código de trânsito, contran, pontos, infracao, infração, suspensao, suspensão]
         imagem: "traffic sign road city"
+        fontes:
+          - nome: "Código de Trânsito Brasileiro (Lei 9.503/1997)"
+            url: https://www.planalto.gov.br/ccivil_03/leis/l9503compilado.htm
+          - nome: "Senatran (Ministério dos Transportes)"
+            url: https://www.gov.br/transportes/pt-br
       - id: documentos-impostos
         titulo: "IPVA, licenciamento e documentos"
         url: /documentos-e-impostos
         termos: [ipva, licenciamento, dpvat, documento, transferencia, transferência, placa, crlv, vistoria]
         imagem: "car documents paperwork desk"
+        fontes:
+          - nome: "Senatran (Ministério dos Transportes)"
+            url: https://www.gov.br/transportes/pt-br
+          - nome: "Portal Gov.br"
+            url: https://www.gov.br
       - id: carros-combustivel
         titulo: "Carros e combustível"
         url: /carros-e-combustivel
         termos: [carro, carros, lancamento, lançamento, recall, combustivel, combustível, gasolina, etanol, diesel, eletrico, elétrico]
         imagem: "gas station fuel pump car"
+        fontes:
+          - nome: "ANP (preços de combustíveis)"
+            url: https://www.gov.br/anp/pt-br
 
     fontes:
       - tipo: google_news

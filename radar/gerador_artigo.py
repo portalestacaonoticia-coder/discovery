@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
 from . import llm
 
@@ -55,7 +56,87 @@ def _hub_de(site: dict, hub_id: str | None) -> dict:
     return {}
 
 
+def _fontes_do_hub(hub: dict) -> list[dict]:
+    """As fontes oficiais configuradas no hub (sites.yaml -> hubs[].fontes):
+    lista de {nome, url}. Entrada sem nome ou sem URL e' ignorada."""
+    uteis = []
+    for f in hub.get("fontes") or []:
+        if isinstance(f, dict) and f.get("nome") and f.get("url"):
+            uteis.append({"nome": str(f["nome"]).strip(), "url": str(f["url"]).strip()})
+    return uteis
+
+
+def _dominios_do_hub(hub: dict) -> list[str]:
+    """Dominios em que a busca pode entrar: os das `fontes` do hub (sem o
+    'www.'; a API cobre os subdominios, entao 'gov.br' alcanca detran.*.gov.br
+    e planalto.gov.br) mais o que estiver em `pesquisa` no hub. Sem nada
+    configurado, nao ha' busca — fonte ou e' oficial ou nao entra."""
+    dominios: list[str] = []
+    for f in _fontes_do_hub(hub):
+        host = (urlparse(f["url"]).netloc or "").lower().removeprefix("www.")
+        if host and host not in dominios:
+            dominios.append(host)
+    for d in hub.get("pesquisa") or []:
+        d = str(d).strip().lower().removeprefix("https://").removeprefix("http://")
+        d = d.removeprefix("www.").rstrip("/")
+        if d and d not in dominios:
+            dominios.append(d)
+    return dominios
+
+
+def _busca(site: dict, hub: dict) -> list[str]:
+    """Dominios da busca, ou [] se ela esta' desligada: hub sem fontes, ou
+    `pesquisa: false` no site. E' a UNICA decisao — o prompt e a chamada
+    consultam a mesma funcao, senao o prompt promete ao modelo uma
+    ferramenta que a chamada nao passa."""
+    if site.get("pesquisa", True) is False:
+        return []
+    return _dominios_do_hub(hub)
+
+
+def _bloco_fontes(hub: dict, citacoes: list[dict] | None = None) -> str:
+    """Bloco FIXO 'Fontes e onde conferir', montado pelo codigo — nunca pelo
+    modelo. Primeiro as paginas que o modelo de fato CITOU na busca (URLs que
+    ele leu), depois as fontes oficiais configuradas no hub que ainda nao
+    apareceram. Referencia escrita por LLM sem ter lido nada e' referencia
+    inventada, assinada pelo site; por isso o modelo e' instruido a NAO
+    escrever secao propria. Sem citacao e sem configuracao = sem bloco."""
+    vistas: set[str] = set()
+    consultadas, oficiais = [], []
+    for c in citacoes or []:
+        chave = c["url"].rstrip("/")
+        if chave in vistas:
+            continue
+        vistas.add(chave)
+        consultadas.append(f"- [{c.get('titulo') or c['url']}]({c['url']})")
+    for f in _fontes_do_hub(hub):
+        chave = f["url"].rstrip("/")
+        if chave in vistas:
+            continue
+        vistas.add(chave)
+        oficiais.append(f"- [{f['nome']}]({f['url']})")
+    if not consultadas and not oficiais:
+        return ""
+    partes = ["\n\n## Fontes e onde conferir\n"]
+    if consultadas:
+        partes.append("\nConsultadas para este guia:\n\n" + "\n".join(consultadas) + "\n")
+    if oficiais:
+        partes.append("\nRegras, prazos e valores mudam; antes de agir, confira "
+                      "na fonte oficial:\n\n" + "\n".join(oficiais) + "\n")
+    return "".join(partes)
+
+
 def _sistema(site: dict, hub: dict) -> str:
+    busca = ""
+    if _busca(site, hub):
+        busca = (
+            "- Voce TEM uma ferramenta de busca na web, restrita as fontes "
+            "oficiais desta secao. USE-A antes de escrever qualquer ponto que "
+            "dependa de prazo, valor, taxa, lei, regra ou procedimento (ate "
+            f"{llm.MAX_BUSCAS_PADRAO} buscas, objetivas). Afirme numero, lei ou "
+            "prazo SOMENTE se encontrou na busca; nesse caso diga de qual orgao "
+            "vem. O que a busca nao trouxer, escreva sem o dado ou mande "
+            "conferir na fonte oficial.\n")
     return (
         f"Voce e' redator do {site.get('entidade') or site['dominio']}, um site "
         f"brasileiro. A secao e': {hub.get('titulo') or 'geral'}.\n"
@@ -78,6 +159,11 @@ def _sistema(site: dict, hub: dict) -> str:
         "- Estruture com 3 a 5 subtitulos markdown (##). Use lista quando for "
         "mesmo uma lista (passos, itens); nao transforme o texto inteiro em "
         "topicos soltos.\n"
+        + busca +
+        "- NAO escreva secao de fontes, referencias ou bibliografia, e nao "
+        "invente links: o site acrescenta um bloco de fontes oficiais no fim, "
+        "montado por ele. Quando mandar o leitor conferir algo, cite a fonte "
+        "oficial pelo NOME (as desta secao estao no pedido), sem URL.\n"
         "Responda SO um JSON valido: {\"titulo\": \"...\", \"resumo\": \"...\", "
         "\"corpo_md\": \"...\"} — resumo com uma frase de ate 200 caracteres, "
         "corpo em markdown SEM repetir o titulo como H1.")
@@ -100,6 +186,11 @@ def _prompt(pauta: dict, site: dict, hub: dict, leia_tambem: list[dict]) -> str:
     if hub.get("termos"):
         partes.append("Vocabulario da secao (o que os leitores procuram): "
                       + ", ".join(str(t) for t in hub["termos"][:12]))
+    fontes = _fontes_do_hub(hub)
+    if fontes:
+        partes.append("Fontes oficiais desta secao (cite pelo nome ao mandar "
+                      "conferir; nao cite outras): "
+                      + "; ".join(f["nome"] for f in fontes))
 
     if manchete and fonte_url:
         partes.append(
@@ -130,8 +221,18 @@ def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dic
         return None
 
     hub = _hub_de(site, pauta.get("hub"))
-    saida = llm.gera(_prompt(pauta, site, hub, leia_tambem or []),
-                     sistema=_sistema(site, hub), max_tokens=4000)
+    dominios = _busca(site, hub)
+    if dominios:
+        # Com busca: o modelo le as fontes oficiais antes de escrever, e as
+        # citacoes viram o bloco de fontes. Sai mais caro (~US$ 0,05/guia) e
+        # e' o que da' prazo, lei e valor de verdade ao texto.
+        saida, citacoes = llm.gera_com_busca(
+            _prompt(pauta, site, hub, leia_tambem or []), dominios,
+            sistema=_sistema(site, hub), max_tokens=6000)
+    else:
+        saida = llm.gera(_prompt(pauta, site, hub, leia_tambem or []),
+                         sistema=_sistema(site, hub), max_tokens=4000)
+        citacoes = []
     if not saida:
         return None
 
@@ -167,5 +268,6 @@ def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dic
         "about": {"@type": "Thing", "name": hub.get("titulo") or site["entidade"]},
     }, ensure_ascii=False, indent=2)
 
-    return {"titulo": titulo, "markdown": f"# {titulo}\n\n{corpo}\n",
-            "resumo": resumo, "jsonld": jsonld}
+    markdown = f"# {titulo}\n\n{corpo}\n" + _bloco_fontes(hub, citacoes)
+    return {"titulo": titulo, "markdown": markdown,
+            "resumo": resumo, "jsonld": jsonld, "citacoes": len(citacoes)}
