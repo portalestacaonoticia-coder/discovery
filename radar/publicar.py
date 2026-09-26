@@ -158,10 +158,15 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
                 "site": nome, "tipo": "guia", "hub": pt.get("hub"),
                 "titulo": art["titulo"], "resumo": art["resumo"],
                 "corpo_md": art["markdown"], "jsonld": art["jsonld"],
-                "status": status, "motivo_portao": f"guia da pauta {pt['id']}",
+                "status": status,
+                "motivo_portao": f"guia da pauta {pt['id']}"
+                                 + (f" ({art['citacoes']} fonte(s) citada(s))"
+                                    if art.get("citacoes") is not None else ""),
                 "referencia": ref,
             })
-        print(f"  [{status}] {art['titulo']}")
+        print(f"  [{status}] {art['titulo']}"
+              + (f" — {art['citacoes']} fonte(s) citada(s)"
+                 if art.get("citacoes") else ""))
 
         if args.sem_publicar:
             continue

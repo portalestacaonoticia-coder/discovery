@@ -147,6 +147,13 @@ sites:
   # montado pelo codigo, nunca pelo modelo: so' entra o que esta' aqui. Hub
   # sem `fontes` sai sem o bloco. CONFERIR cada URL antes de ligar — a lista
   # abaixo e' a proposta inicial, com enderecos raiz dos orgaos.
+  #
+  # BUSCA DURANTE A ESCRITA (26/09/2026): hub com `fontes` liga a busca na web
+  # da API do Claude restrita aos dominios dessas fontes (subdominios inclusos:
+  # 'gov.br' alcanca detran.*.gov.br). O modelo le a fonte antes de afirmar
+  # prazo, lei ou valor, e o que ele CITOU entra no bloco de fontes. Custo:
+  # ~US$ 0,05 a mais por guia. `pesquisa:` no hub acrescenta dominios sem
+  # virar link no bloco; `pesquisa: false` no site desliga a busca inteira.
   # Sem base propria por enquanto: so' angulo editorial (o radar nao sugere
   # angulo de dado quando a base nao existe — ver README). Base propria de
   # cada um fica como evolucao (ex.: precos de ingredientes no broune,
