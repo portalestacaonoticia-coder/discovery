@@ -91,6 +91,10 @@ Copiar um bloco de `config/sites.yaml` e trocar:
 4. `base` — `eventos`, `cotacoes` ou uma tabela nova em `sql/schema.sql`. Sem
    base propria o site so' produz angulo editorial.
 5. `moldes` (opcional) — sobrescreve o titulo de um angulo so' naquele site.
+6. `fontes` no hub (opcional) — fontes OFICIAIS, `nome` + `url`, que fecham
+   cada guia num bloco fixo "Fontes e onde conferir". O bloco e' montado pelo
+   codigo, nunca pelo modelo: referencia escrita por LLM sem ter lido nada e'
+   referencia inventada. Hub sem `fontes` sai sem o bloco.
 
 ## Pauta de calendario pronta: cotacao do dolar
 

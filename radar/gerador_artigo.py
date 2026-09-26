@@ -55,6 +55,31 @@ def _hub_de(site: dict, hub_id: str | None) -> dict:
     return {}
 
 
+def _fontes_do_hub(hub: dict) -> list[dict]:
+    """As fontes oficiais configuradas no hub (sites.yaml -> hubs[].fontes):
+    lista de {nome, url}. Entrada sem nome ou sem URL e' ignorada."""
+    uteis = []
+    for f in hub.get("fontes") or []:
+        if isinstance(f, dict) and f.get("nome") and f.get("url"):
+            uteis.append({"nome": str(f["nome"]).strip(), "url": str(f["url"]).strip()})
+    return uteis
+
+
+def _bloco_fontes(hub: dict) -> str:
+    """Bloco FIXO 'Fontes e onde conferir', montado pelo codigo a partir do
+    sites.yaml — nunca pelo modelo. Referencia escrita por LLM sem ter lido
+    nada e' referencia inventada, assinada pelo site; por isso o modelo e'
+    instruido a NAO escrever secao propria, e o bloco so' entra com o que
+    estiver configurado. Hub sem fontes = sem bloco, nunca fonte de mentira."""
+    fontes = _fontes_do_hub(hub)
+    if not fontes:
+        return ""
+    linhas = "\n".join(f"- [{f['nome']}]({f['url']})" for f in fontes)
+    return ("\n\n## Fontes e onde conferir\n\n"
+            "Regras, prazos e valores mudam; antes de agir, confira na fonte "
+            f"oficial:\n\n{linhas}\n")
+
+
 def _sistema(site: dict, hub: dict) -> str:
     return (
         f"Voce e' redator do {site.get('entidade') or site['dominio']}, um site "
@@ -78,6 +103,10 @@ def _sistema(site: dict, hub: dict) -> str:
         "- Estruture com 3 a 5 subtitulos markdown (##). Use lista quando for "
         "mesmo uma lista (passos, itens); nao transforme o texto inteiro em "
         "topicos soltos.\n"
+        "- NAO escreva secao de fontes, referencias ou bibliografia, e nao "
+        "invente links: o site acrescenta um bloco de fontes oficiais no fim, "
+        "montado por ele. Quando mandar o leitor conferir algo, cite a fonte "
+        "oficial pelo NOME (as desta secao estao no pedido), sem URL.\n"
         "Responda SO um JSON valido: {\"titulo\": \"...\", \"resumo\": \"...\", "
         "\"corpo_md\": \"...\"} — resumo com uma frase de ate 200 caracteres, "
         "corpo em markdown SEM repetir o titulo como H1.")
@@ -100,6 +129,11 @@ def _prompt(pauta: dict, site: dict, hub: dict, leia_tambem: list[dict]) -> str:
     if hub.get("termos"):
         partes.append("Vocabulario da secao (o que os leitores procuram): "
                       + ", ".join(str(t) for t in hub["termos"][:12]))
+    fontes = _fontes_do_hub(hub)
+    if fontes:
+        partes.append("Fontes oficiais desta secao (cite pelo nome ao mandar "
+                      "conferir; nao cite outras): "
+                      + "; ".join(f["nome"] for f in fontes))
 
     if manchete and fonte_url:
         partes.append(
@@ -167,5 +201,6 @@ def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dic
         "about": {"@type": "Thing", "name": hub.get("titulo") or site["entidade"]},
     }, ensure_ascii=False, indent=2)
 
-    return {"titulo": titulo, "markdown": f"# {titulo}\n\n{corpo}\n",
+    markdown = f"# {titulo}\n\n{corpo}\n" + _bloco_fontes(hub)
+    return {"titulo": titulo, "markdown": markdown,
             "resumo": resumo, "jsonld": jsonld}
