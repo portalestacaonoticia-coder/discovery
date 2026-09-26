@@ -1,0 +1,68 @@
+name: rascunhos (guias antigos para o WP)
+
+# Manda como RASCUNHO os guias que ficaram escritos e nunca publicados (o
+# estoque do periodo em que o WordPress recusava). Nao chama o Claude: usa o
+# texto ja' salvo. O editor le no painel do site e publica na mao.
+#
+# Actions -> "rascunhos (guias antigos para o WP)" -> Run workflow.
+# Deixe `seco` marcado na primeira vez para ver a lista antes de enviar.
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Site (ou 'todos')"
+        required: true
+        default: todos
+        type: choice
+        options:
+          - todos
+          - broune
+          - divadabeleza
+          - cineartcafe
+          - pescaria
+          - guiadomotorista
+      seco:
+        description: "So' listar, sem enviar"
+        required: true
+        default: true
+        type: boolean
+      limite:
+        description: "No maximo N por site (0 = todos)"
+        required: false
+        default: "0"
+        type: string
+
+jobs:
+  rascunhos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: rascunhos (${{ inputs.site }}, seco=${{ inputs.seco }})
+        run: >
+          python -m radar.rascunhos
+          ${{ inputs.site != 'todos' && format('--site {0}', inputs.site) || '' }}
+          ${{ inputs.seco && '--seco' || '' }}
+          --limite ${{ inputs.limite }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          WP_BROUNE_USUARIO: ${{ secrets.WP_BROUNE_USUARIO }}
+          WP_BROUNE_SENHA: ${{ secrets.WP_BROUNE_SENHA }}
+          WP_DIVADABELEZA_USUARIO: ${{ secrets.WP_DIVADABELEZA_USUARIO }}
+          WP_DIVADABELEZA_SENHA: ${{ secrets.WP_DIVADABELEZA_SENHA }}
+          WP_CINEARTCAFE_USUARIO: ${{ secrets.WP_CINEARTCAFE_USUARIO }}
+          WP_CINEARTCAFE_SENHA: ${{ secrets.WP_CINEARTCAFE_SENHA }}
+          WP_PESCARIA_USUARIO: ${{ secrets.WP_PESCARIA_USUARIO }}
+          WP_PESCARIA_SENHA: ${{ secrets.WP_PESCARIA_SENHA }}
+          WP_GUIADOMOTORISTA_USUARIO: ${{ secrets.WP_GUIADOMOTORISTA_USUARIO }}
+          WP_GUIADOMOTORISTA_SENHA: ${{ secrets.WP_GUIADOMOTORISTA_SENHA }}

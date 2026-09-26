@@ -23,6 +23,7 @@ create table if not exists itens (
   resumo        text,                        -- so' o resumo do feed. Nunca o texto integral do outro site.
   publicado_em  timestamptz,
   coletado_em   timestamptz not null default now(),
+  relevante     boolean not null default true,  -- false = descartado pelo classificador (so' dedup, sem pauta)
   unique (site, hash_dedup)
 );
 create index if not exists idx_itens_site_data on itens (site, publicado_em desc);
