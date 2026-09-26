@@ -99,6 +99,9 @@ Copiar um bloco de `config/sites.yaml` e trocar:
    dominios: o modelo le a fonte oficial antes de afirmar prazo, lei ou valor,
    e as paginas que ele citou entram primeiro no bloco. `pesquisa:` no hub
    acrescenta dominios; `pesquisa: false` no site desliga a busca.
+7. `categorias` no hub (opcional) — nomes das categorias do WordPress em que
+   os posts do hub entram (criadas se nao existirem). Editavel na aba Discovery
+   do conteudo.tihee. Sem isso, o post vai para uma categoria com o id do hub.
 
 ## Pauta de calendario pronta: cotacao do dolar
 

@@ -154,6 +154,11 @@ sites:
   # prazo, lei ou valor, e o que ele CITOU entra no bloco de fontes. Custo:
   # ~US$ 0,05 a mais por guia. `pesquisa:` no hub acrescenta dominios sem
   # virar link no bloco; `pesquisa: false` no site desliga a busca inteira.
+  #
+  # `categorias` no hub (26/09/2026) = categorias do WordPress em que os posts
+  # desse hub entram (nomes, como aparecem no WP; sao criadas se nao existirem).
+  # Editavel na aba Discovery do conteudo.tihee. Sem `categorias`, o post vai
+  # para uma categoria com o id do hub (comportamento original).
   # Sem base propria por enquanto: so' angulo editorial (o radar nao sugere
   # angulo de dado quando a base nao existe — ver README). Base propria de
   # cada um fica como evolucao (ex.: precos de ingredientes no broune,
