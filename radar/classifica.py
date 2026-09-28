@@ -1,7 +1,7 @@
 """Classificacao: a pauta interessa? de que hub e'? que angulo cabe?
 
-Dois modos, na ordem: se ANTHROPIC_API_KEY existir, usa o modelo; se nao,
-cai no modo por palavra-chave. O radar funciona sem chave nenhuma — a chave
+Dois modos, na ordem: se OPENAI_API_KEY existir, usa o gpt-6-luna pela ponte
+unica (llm.py); se nao, cai no modo por palavra-chave. O radar funciona sem chave nenhuma — a chave
 so' melhora a qualidade da leitura.
 
 A chamada ao modelo passa pela ponte `llm.py` (mesmo modelo e mesmo registro
@@ -49,16 +49,23 @@ def classifica_por_llm(titulo: str, resumo: str, site: dict) -> dict | None:
         "\"lugar\": \"cidade citada ou null\", \"publico\": \"quem e' afetado, "
         "em 3 palavras\", \"prioridade\": 0-10}"
     )
-    texto = llm.gera(prompt, max_tokens=300)
+    texto = llm.gera(prompt, max_tokens=300, modelo=llm.MODELO_CLASSIFICA,
+                     json_obj=True)
     if not texto:
-        return None
-    bruto = re.search(r"\{.*\}", texto, re.S)
-    if not bruto:
+        # Classificacao e' melhoria, nao dependencia: falhou, cai no modo por
+        # termo. Avisa no log, senao a queda de qualidade passa despercebida
+        # (o motivo da falha de API ja' saiu na linha [llm]).
+        print(f"  classificacao por LLM falhou, usando palavra-chave: {titulo[:60]}")
         return None
     try:
-        return json.loads(bruto.group(0))
-    except json.JSONDecodeError:
+        bruto = re.search(r"\{.*\}", texto, re.S)
+        leitura = json.loads(bruto.group(0)) if bruto else None
+    except (json.JSONDecodeError, AttributeError):
+        leitura = None
+    if not isinstance(leitura, dict):
+        print(f"  classificacao por LLM veio sem JSON, usando palavra-chave: {titulo[:60]}")
         return None
+    return leitura
 
 
 def avalia(titulo: str, resumo: str, site: dict) -> dict:

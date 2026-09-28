@@ -44,7 +44,7 @@ class Banco:
         `item_existe` o pula e o modelo nao le a mesma noticia de novo.
 
         Ate 26/09/2026 o descarte nao era gravado, e a mesma manchete
-        irrelevante voltava do feed e passava pelo Claude a cada 30 min,
+        irrelevante voltava do feed e passava pelo modelo a cada 30 min,
         enquanto ficasse no Google News — era o maior gasto silencioso do
         radar. Nao gera pauta e nao aparece no painel (que le `itens` so'
         atraves das pautas).

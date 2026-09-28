@@ -1,7 +1,7 @@
 name: rascunhos (guias antigos para o WP)
 
 # Manda como RASCUNHO os guias que ficaram escritos e nunca publicados (o
-# estoque do periodo em que o WordPress recusava). Nao chama o Claude: usa o
+# estoque do periodo em que o WordPress recusava). Nao chama o gpt-6-luna: usa o
 # texto ja' salvo. O editor le no painel do site e publica na mao.
 #
 # Actions -> "rascunhos (guias antigos para o WP)" -> Run workflow.

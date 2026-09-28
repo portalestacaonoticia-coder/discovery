@@ -11,7 +11,7 @@ de cada pauta aprovada, salvava em `artigos` e falhava no envio. No dia
 seguinte ela so' olha as pautas aprovadas DO DIA, entao as de ontem ficaram
 orfas: pauta 'aprovada' para sempre, texto pronto no banco.
 
-Este fluxo NAO chama o Claude — so' usa o texto ja' salvo (custo zero de API).
+Este fluxo NAO chama o gpt-6-luna — so' usa o texto ja' salvo (custo zero de API).
 Pauta orfa SEM texto salvo e' apenas contada e deixada como esta'.
 
 Vai como rascunho de proposito, mesmo com `publicacao.radar: auto` no

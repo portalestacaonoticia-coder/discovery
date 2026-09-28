@@ -48,7 +48,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           WP_BROUNE_USUARIO: ${{ secrets.WP_BROUNE_USUARIO }}
           WP_BROUNE_SENHA: ${{ secrets.WP_BROUNE_SENHA }}

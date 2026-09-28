@@ -2,7 +2,7 @@
 
 O doll tem PTAX: da' para montar artigo por template, porque existe um numero
 proprio para dizer. Aqui nao existe base — e por isso este gerador NAO tem
-fallback de template. Sem chave do Claude ele devolve None e nada e' publicado.
+fallback de template. Sem chave da OpenAI ele devolve None e nada e' publicado.
 
 E' deliberado. Template sem dado produziria texto de encheção — exatamente o
 "conteudo em escala" que a politica de spam do Google descreve e que este
@@ -224,8 +224,9 @@ def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dic
     dominios = _busca(site, hub)
     if dominios:
         # Com busca: o modelo le as fontes oficiais antes de escrever, e as
-        # citacoes viram o bloco de fontes. Sai mais caro (~US$ 0,05/guia) e
-        # e' o que da' prazo, lei e valor de verdade ao texto.
+        # citacoes viram o bloco de fontes. Sai mais caro (cada busca e'
+        # cobrada a parte, mais os tokens das paginas lidas) e e' o que da'
+        # prazo, lei e valor de verdade ao texto.
         saida, citacoes = llm.gera_com_busca(
             _prompt(pauta, site, hub, leia_tambem or []), dominios,
             sistema=_sistema(site, hub), max_tokens=6000)

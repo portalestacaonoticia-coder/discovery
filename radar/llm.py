@@ -1,12 +1,16 @@
-"""Ponte unica com o Claude (Anthropic). Melhoria, nunca dependencia: sem
-chave ou sem SDK, devolve None e quem chama cai no seu proprio fallback.
+"""Ponte unica com a OpenAI (gpt-6-luna). Melhoria, nunca dependencia: sem
+chave, devolve None e quem chama cai no seu proprio fallback.
 
 Toda chamada ao modelo passa por aqui — classificacao, satelites, guias,
-reserva. Um lugar so' para trocar de modelo e para VER as falhas: a
-excecao da API nao e' engolida em silencio, ela vai para o log da rodada
-(stdout do Actions) e para o resumo gravado em `execucoes`, via
-`resumo_falhas()`. Antes de 26/09/2026 uma chave vencida ou um credito
-esgotado so' aparecia como "post nao saiu", sem motivo.
+reserva. Um lugar so' para trocar de modelo e para VER as falhas: o erro da
+API nao e' engolido em silencio, ele vai para o log da rodada (stdout do
+Actions) e para o resumo gravado em `execucoes`, via `resumo_falhas()`.
+Antes de 26/09/2026 uma chave vencida ou um credito esgotado so' aparecia
+como "post nao saiu", sem motivo.
+
+Uma chave so', OPENAI_API_KEY. Fala com a API direto via requests (ja' e'
+dependencia do projeto) — sem SDK extra para instalar. Usa a Responses API
+(/v1/responses), que e' onde vive a busca na web da propria OpenAI.
 
 Duas portas:
   gera()           texto puro, sem ferramenta.
@@ -18,21 +22,25 @@ Duas portas:
 """
 from __future__ import annotations
 
+import requests
+
 from .config import env
 
-# Sonnet: rapido e barato o bastante para volume diario, bom o bastante para
-# reescrever uma nota curta. Trocar por claude-opus-5 aqui se quiser mais
-# qualidade a mais custo.
-MODELO_LLM = "claude-sonnet-5"
+# Modelo unico de geracao de artigos. Trocar aqui muda todas as esteiras.
+MODELO_LLM = "gpt-6-luna"
+# Classificacao de pauta: tarefa curta, JSON de 300 tokens por noticia nova.
+# Mesmo modelo por padrao; se o volume pesar no custo, troque so' este.
+MODELO_CLASSIFICA = MODELO_LLM
 
-# Busca na web da API (US$ 10 por 1.000 buscas + tokens das paginas lidas).
-# Versao com filtragem dinamica; `allowed_callers: direct` chama a busca
-# direto, sem o ambiente de execucao de codigo — mais simples e mais barato
-# para "ache o prazo no site oficial".
-FERRAMENTA_BUSCA = "web_search_20260209"
+URL_API = "https://api.openai.com/v1/responses"
+TIMEOUT_S = 180
+
+# Busca na web da API (cobrada por chamada de busca + tokens das paginas
+# lidas). A API nao tem teto de buscas por pedido: o limite vai no prompt
+# (gerador_artigo.py cita MAX_BUSCAS_PADRAO) e o total feito sai no log.
 MAX_BUSCAS_PADRAO = 3
-# pause_turn: a API pausa um turno longo de busca e pede para reenviar.
-MAX_CONTINUACOES = 3
+# `filters.allowed_domains` aceita no maximo 20 dominios por pedido.
+MAX_DOMINIOS = 20
 
 # Falhas da rodada, na ordem. Cada mensagem distinta e' impressa UMA vez
 # (um 429 em 80 itens nao vira 80 linhas de log) mas contada todas.
@@ -41,7 +49,7 @@ _impressas: set[str] = set()
 
 
 def tem_chave() -> bool:
-    return bool(env("ANTHROPIC_API_KEY"))
+    return bool(env("OPENAI_API_KEY"))
 
 
 def _registra_falha(mensagem: str) -> None:
@@ -58,7 +66,7 @@ def falhas() -> list[str]:
 
 def resumo_falhas() -> str:
     """Sufixo curto para o resumo de `execucoes`; vazio se nao houve falha.
-    Ex.: ' | LLM: 3 falha(s): 429 rate_limit_error ...'"""
+    Ex.: ' | LLM: 3 falha(s): HTTP 429 rate_limit_exceeded ...'"""
     if not _falhas:
         return ""
     return f" | LLM: {len(_falhas)} falha(s): {_falhas[-1][:160]}"
@@ -69,153 +77,167 @@ def limpa_falhas() -> None:
     _impressas.clear()
 
 
-def _cliente():
-    """Cliente da API, ou None (sem chave = modo sem LLM, por desenho)."""
-    chave = env("ANTHROPIC_API_KEY")
+def _corpo(prompt: str, sistema: str | None, max_tokens: int,
+           modelo: str | None, json_obj: bool) -> dict:
+    corpo = {
+        "model": modelo or MODELO_LLM,
+        "input": prompt,
+        "max_output_tokens": max_tokens,
+    }
+    if sistema:
+        corpo["instructions"] = sistema
+    if json_obj:
+        # Modo JSON: a API garante um objeto valido. O prompt precisa conter
+        # a palavra "JSON", exigencia da propria API.
+        corpo["text"] = {"format": {"type": "json_object"}}
+    return corpo
+
+
+def _chama(corpo: dict) -> dict | None:
+    """POST /v1/responses com a falha registrada. Devolve a resposta (dict)
+    ou None. Sem chave NAO e' falha — e' o modo sem LLM, por desenho."""
+    chave = env("OPENAI_API_KEY")
     if not chave:
         return None
+    cabecalhos = {"Authorization": f"Bearer {chave}",
+                  "Content-Type": "application/json"}
+    org = env("OPENAI_ORG_ID")
+    if org:
+        cabecalhos["OpenAI-Organization"] = org
     try:
-        import anthropic
-    except ImportError:
-        return None
-    # Chave vinculada a workspace exige o id do workspace no header; chave
-    # de conta comum ignora. Passar so' quando existir cobre os dois casos.
-    cabecalhos = {}
-    ws = env("ANTHROPIC_WORKSPACE_ID")
-    if ws:
-        cabecalhos["anthropic-workspace-id"] = ws
-    return anthropic.Anthropic(api_key=chave, default_headers=cabecalhos or None)
-
-
-def _chama(cliente, **kwargs):
-    """messages.create com a falha registrada. Devolve a resposta ou None."""
-    import anthropic
-    try:
-        return cliente.messages.create(**kwargs)
-    except anthropic.APIStatusError as erro:
-        # 401 chave, 403 permissao, 429 limite, 400 pedido, 5xx servidor:
-        # o codigo + tipo dizem o que fazer; o request-id serve para o suporte.
-        corpo = getattr(erro, "body", None)
-        detalhe = (corpo or {}).get("error") if isinstance(corpo, dict) else None
-        if isinstance(detalhe, dict) and detalhe.get("type"):
-            texto = f"{detalhe['type']}: {detalhe.get('message') or ''}".strip(": ")
-        else:
-            texto = str(getattr(erro, "message", erro))
-        req = getattr(erro, "request_id", None) or ""
-        _registra_falha(f"HTTP {erro.status_code} {texto}"
-                        + (f" (request {req})" if req else ""))
-        return None
-    except anthropic.APIConnectionError as erro:
+        r = requests.post(URL_API, json=corpo, headers=cabecalhos,
+                          timeout=TIMEOUT_S)
+    except requests.RequestException as erro:
         _registra_falha(f"sem conexao com a API: {erro}")
         return None
     except Exception as erro:  # noqa: BLE001 — melhoria, nunca dependencia
         _registra_falha(f"{type(erro).__name__}: {erro}")
         return None
 
+    req = r.headers.get("x-request-id") or ""
+    try:
+        dados = r.json()
+    except ValueError:
+        dados = None
+    if not r.ok:
+        # 401 chave, 403 permissao, 429 limite/credito, 400 pedido, 5xx
+        # servidor: o codigo + tipo dizem o que fazer; o request-id serve
+        # para o suporte.
+        detalhe = dados.get("error") if isinstance(dados, dict) else None
+        if isinstance(detalhe, dict):
+            rotulo = detalhe.get("code") or detalhe.get("type") or ""
+            texto = f"{rotulo}: {detalhe.get('message') or ''}".strip(": ")
+        else:
+            texto = (r.text or "").strip()[:200]
+        _registra_falha(f"HTTP {r.status_code} {texto}"
+                        + (f" (request {req})" if req else ""))
+        return None
+    if not isinstance(dados, dict):
+        _registra_falha("resposta da API sem JSON")
+        return None
+    erro = dados.get("error")
+    if erro:
+        # status=failed vem com HTTP 200 e o erro dentro do corpo.
+        msg = erro.get("message") if isinstance(erro, dict) else str(erro)
+        _registra_falha(f"pedido falhou: {msg}")
+        return None
+    if dados.get("status") == "incomplete":
+        # Cortado no max_output_tokens (ou filtro de conteudo): o JSON do
+        # artigo vem pela metade e nao serve. Melhor registrar e nao usar.
+        motivo = (dados.get("incomplete_details") or {}).get("reason") or "?"
+        _registra_falha(f"resposta incompleta ({motivo})")
+        return None
+    return dados
 
-def _texto_e_citacoes(blocos) -> tuple[str, list[dict]]:
-    """Junta os blocos de texto (ignora thinking, busca e resultados) e
-    recolhe as citacoes de busca: [{url, titulo}], sem repetir URL, na ordem
-    em que apareceram. Erro de busca (vem com HTTP 200, dentro do resultado)
-    e' registrado como falha, mas o texto segue."""
+
+def _texto_e_citacoes(saida) -> tuple[str, list[dict], int]:
+    """Junta o texto das mensagens (ignora raciocinio e chamadas de busca),
+    recolhe as citacoes [{url, titulo}] sem repetir URL, na ordem em que
+    apareceram, e conta as buscas feitas. Recusa do modelo e busca que falhou
+    (vem com HTTP 200, dentro da saida) sao registradas como falha."""
     partes: list[str] = []
     citacoes: list[dict] = []
     vistas: set[str] = set()
-    for b in blocos:
-        tipo = getattr(b, "type", None)
-        if tipo == "text":
-            partes.append(getattr(b, "text", "") or "")
-            for c in getattr(b, "citations", None) or []:
-                url = getattr(c, "url", None)
-                if not url:
+    buscas = 0
+    for item in saida or []:
+        if not isinstance(item, dict):
+            continue
+        tipo = item.get("type")
+        if tipo == "message":
+            for c in item.get("content") or []:
+                if not isinstance(c, dict):
                     continue
-                chave = url.rstrip("/")
-                if chave in vistas:
-                    continue
-                vistas.add(chave)
-                citacoes.append({"url": url,
-                                 "titulo": (getattr(c, "title", None) or url).strip()})
-        elif tipo == "web_search_tool_result":
-            conteudo = getattr(b, "content", None)
-            codigo = getattr(conteudo, "error_code", None)
-            if codigo:
-                _registra_falha(f"busca na web falhou: {codigo}")
-    return "".join(partes).strip(), citacoes
+                if c.get("type") == "output_text":
+                    partes.append(c.get("text") or "")
+                    for a in c.get("annotations") or []:
+                        if not isinstance(a, dict) or a.get("type") != "url_citation":
+                            continue
+                        url = (a.get("url") or "").strip()
+                        if not url:
+                            continue
+                        chave = url.rstrip("/")
+                        if chave in vistas:
+                            continue
+                        vistas.add(chave)
+                        citacoes.append({"url": url,
+                                         "titulo": (a.get("title") or url).strip()})
+                elif c.get("type") == "refusal":
+                    _registra_falha("modelo recusou o pedido: "
+                                    f"{(c.get('refusal') or '')[:120]}")
+        elif tipo == "web_search_call":
+            buscas += 1
+            if item.get("status") == "failed":
+                _registra_falha("busca na web falhou")
+    return "".join(partes).strip(), citacoes, buscas
 
 
-def gera(prompt: str, sistema: str | None = None, max_tokens: int = 1000) -> str | None:
-    """Texto do Claude, ou None se nao der (sem chave, sem SDK, ou erro).
+def gera(prompt: str, sistema: str | None = None, max_tokens: int = 1000,
+         modelo: str | None = None, json_obj: bool = False) -> str | None:
+    """Texto do modelo, ou None se nao der (sem chave, erro de API, vazio).
 
-    Sem chave e sem SDK NAO e' falha — e' o modo sem LLM, por desenho.
-    Erro da API e' falha: fica registrado (ver `resumo_falhas`)."""
-    cliente = _cliente()
-    if cliente is None:
+    json_obj=True pede a resposta em modo JSON (a API garante um objeto
+    valido). Sem chave NAO e' falha — e' o modo sem LLM, por desenho. Erro da
+    API e' falha: fica registrado (ver `resumo_falhas`)."""
+    if not tem_chave():
         return None
-    kwargs = {"model": MODELO_LLM, "max_tokens": max_tokens,
-              "messages": [{"role": "user", "content": prompt}]}
-    if sistema:
-        kwargs["system"] = sistema
-    r = _chama(cliente, **kwargs)
-    if r is None:
+    dados = _chama(_corpo(prompt, sistema, max_tokens, modelo, json_obj))
+    if dados is None:
         return None
-    if getattr(r, "stop_reason", None) == "refusal":
-        _registra_falha("modelo recusou o pedido (stop_reason=refusal)")
-        return None
-    texto, _ = _texto_e_citacoes(r.content)
+    texto, _, _ = _texto_e_citacoes(dados.get("output"))
     return texto or None
 
 
 def gera_com_busca(prompt: str, dominios: list[str], sistema: str | None = None,
                    max_tokens: int = 6000,
                    max_buscas: int = MAX_BUSCAS_PADRAO) -> tuple[str | None, list[dict]]:
-    """Texto do Claude escrito COM busca na web restrita a `dominios`, e as
+    """Texto do modelo escrito COM busca na web restrita a `dominios`, e as
     citacoes [{url, titulo}] das paginas que ele de fato usou.
 
     Devolve (None, []) nos mesmos casos de `gera`. Sem dominios, cai em
     `gera` (nao existe busca "aberta" aqui: fonte ou e' oficial ou nao entra).
-    Resolve `pause_turn` reenviando a resposta, ate MAX_CONTINUACOES vezes."""
-    dominios = [d for d in (dominios or []) if d]
+    `max_buscas` e' orientacao ao modelo (vai no prompt de quem chama); a API
+    nao impoe teto, entao o numero real de buscas sai no log."""
+    dominios = [d for d in (dominios or []) if d][:MAX_DOMINIOS]
     if not dominios:
         return gera(prompt, sistema=sistema, max_tokens=max_tokens), []
-    cliente = _cliente()
-    if cliente is None:
+    if not tem_chave():
         return None, []
 
-    ferramenta = {
-        "type": FERRAMENTA_BUSCA, "name": "web_search",
-        "max_uses": max_buscas,
-        "allowed_domains": dominios,
-        "allowed_callers": ["direct"],
+    corpo = _corpo(prompt, sistema, max_tokens, None, False)
+    corpo["tools"] = [{
+        "type": "web_search",
+        "filters": {"allowed_domains": dominios},
         "user_location": {"type": "approximate", "country": "BR",
                           "timezone": "America/Sao_Paulo"},
-    }
-    mensagens = [{"role": "user", "content": prompt}]
-    kwargs = {"model": MODELO_LLM, "max_tokens": max_tokens,
-              "tools": [ferramenta], "messages": mensagens}
-    if sistema:
-        kwargs["system"] = sistema
-
-    r = None
-    for _ in range(MAX_CONTINUACOES + 1):
-        r = _chama(cliente, **kwargs)
-        if r is None:
-            return None, []
-        if getattr(r, "stop_reason", None) != "pause_turn":
-            break
-        # A API pausou o turno de busca: reenvia a resposta como veio, sem
-        # mensagem extra, e ela retoma de onde parou.
-        kwargs["messages"] = mensagens + [{"role": "assistant", "content": r.content}]
-
-    if getattr(r, "stop_reason", None) == "refusal":
-        _registra_falha("modelo recusou o pedido (stop_reason=refusal)")
-        return None, []
-    if getattr(r, "stop_reason", None) == "pause_turn":
-        _registra_falha("busca na web nao terminou (pause_turn repetido)")
+    }]
+    corpo["tool_choice"] = "auto"
+    dados = _chama(corpo)
+    if dados is None:
         return None, []
 
-    texto, citacoes = _texto_e_citacoes(r.content)
-    uso = getattr(getattr(r, "usage", None), "server_tool_use", None)
-    buscas = getattr(uso, "web_search_requests", None)
-    if buscas is not None:
+    texto, citacoes, buscas = _texto_e_citacoes(dados.get("output"))
+    if buscas:
         print(f"  [busca] {buscas} busca(s), {len(citacoes)} fonte(s) citada(s)")
+        if buscas > max_buscas:
+            print(f"  [busca] passou do teto sugerido de {max_buscas}")
     return (texto or None), citacoes

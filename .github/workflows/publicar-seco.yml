@@ -1,7 +1,7 @@
 name: publicar (ensaio)
 
-# Ensaio da esteira dos blogs: escreve os guias de verdade (gasta cota do
-# Claude) e IMPRIME, mas nao grava no banco e NAO publica nada no WordPress.
+# Ensaio da esteira dos blogs: escreve os guias de verdade (gasta cota da
+# OpenAI, gpt-6-luna) e IMPRIME, mas nao grava no banco e NAO publica nada no WordPress.
 # E' o jeito de ver o que sairia antes de confiar no cron.
 #
 # Actions -> "publicar (ensaio)" -> Run workflow.
@@ -62,7 +62,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
       # Os guias ficam em saida/ — baixe o artefato para ler inteiro.

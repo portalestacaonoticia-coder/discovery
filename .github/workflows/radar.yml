@@ -26,7 +26,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # Satelites saem AQUI (a cada ciclo, todos os dias, fim de semana
       # incluso), respeitando o horario_sugerido de cada pauta: quente sai no
       # proximo ciclo, fixa espera o slot dela. Idempotente + teto por hub/dia,
@@ -37,7 +37,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
@@ -45,14 +45,14 @@ jobs:
       # pescaria, guiadomotorista): escreve o guia de servico do tema que a
       # pauta apontou e publica com imagem destacada. Mesmo contrato dos
       # satelites — teto por hub/dia e horario_sugerido —, entao rodar a cada
-      # 30 min nao empilha post. Sem ANTHROPIC_API_KEY nao escreve nada.
+      # 30 min nao empilha post. Sem OPENAI_API_KEY nao escreve nada.
       - run: python -m radar.publicar
         if: always()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           WP_BROUNE_USUARIO: ${{ secrets.WP_BROUNE_USUARIO }}
           WP_BROUNE_SENHA: ${{ secrets.WP_BROUNE_SENHA }}
@@ -73,7 +73,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}

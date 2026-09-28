@@ -38,7 +38,7 @@ EXIGIDAS = [
     ("pautas", "horario_sugerido", "sql/schema.sql",
      "slot da pauta fixa na janela editorial"),
     ("itens", "relevante", "sql/itens-relevante-2026-09.sql",
-     "descarte do classificador; sem ela o Claude reclassifica a mesma "
+     "descarte do classificador; sem ela o modelo reclassifica a mesma "
      "manchete a cada ciclo"),
 ]
 

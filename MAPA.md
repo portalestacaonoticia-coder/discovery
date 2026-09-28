@@ -21,7 +21,7 @@ radar/
 │   ├── angulos.py          ← taxonomia de angulos: o gerador de variacoes do
 │   │                         mesmo fato. 'exige_dado' marca quem precisa da base.
 │   ├── classifica.py       ← relevancia + hub + montagem dos titulos sugeridos.
-│   │                         Usa LLM se houver chave; senao, palavra-chave.
+│   │                         Usa o gpt-6-luna (llm.py) se houver chave; senao, palavra-chave.
 │   ├── pontua.py           ← pontuacao de pautas (News/Discover): dado proprio >
 │   │                         frescor > angulo. Pesos vem de metas.criterios.
 │   ├── selecao.py          ← selecao automatica do dia: dentro da meta, aprova
@@ -39,20 +39,21 @@ radar/
 │   ├── ancoras.py          ← entrypoint que gera e publica os textos ancora
 │   │                         (idempotente: referencia fixa por guia, atualiza a
 │   │                         mesma pagina). `python -m radar.ancoras`
-│   ├── llm.py              ← ponte unica com o Claude (sonnet-5). Melhoria, nunca
-│   │                         dependencia: sem chave/SDK devolve None (fallback).
+│   ├── llm.py              ← ponte unica com a OpenAI (gpt-6-luna): classificacao,
+│   │                         artigos e busca nas fontes oficiais. Melhoria, nunca
+│   │                         dependencia: sem chave devolve None (fallback).
 │   │                         Erro da API vai para o log e para o resumo em
 │   │                         `execucoes` (resumo_falhas), nunca e' engolido.
 │   │                         gera_com_busca(): texto + citacoes, com a busca
 │   │                         da API restrita aos dominios das fontes do hub.
-│   ├── gerador_satelite.py ← artigo-satelite: escrito pelo Claude quando ha chave
+│   ├── gerador_satelite.py ← artigo-satelite: escrito pelo gpt-6-luna quando ha chave
 │   │                         (titulos unicos, fato atribuido a fonte, dado proprio,
 │   │                         link ancora); template como fallback.
 │   ├── satelites.py         ← entrypoint dos satelites: pautas com dado proprio,
 │   │                         no maximo 1 por hub/dia, respeitando horario_sugerido.
 │   │                         Roda no cron do radar (30min, todos os dias).
 │   ├── rascunhos.py         ← guia escrito e nunca publicado (WP recusou no dia)
-│   │                         vai para o WP como RASCUNHO, sem chamar o Claude.
+│   │                         vai para o WP como RASCUNHO, sem chamar o gpt-6-luna.
 │   │                         Manual: `python -m radar.rascunhos` / workflow.
 │   ├── reserva.py           ← PISO de publicacao (regra: sempre sai post). Depois
 │   │                         das 17h SP, dia zerado = publica a nota-reserva

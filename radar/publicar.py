@@ -5,7 +5,7 @@
     python -m radar.publicar                    # todos os sites do fluxo generico
 
 Pega as pautas que a selecao aprovou hoje, ja' MADURAS (horario_sugerido
-vencido), respeita o teto por hub, escreve o guia de servico com o Claude
+vencido), respeita o teto por hub, escreve o guia de servico com o gpt-6-luna
 (radar/gerador_artigo.py) e publica no WordPress com imagem destacada.
 Cada pauta vira 'publicada' depois — nao se repete.
 
@@ -17,7 +17,7 @@ O portao continua sendo `publicacao.radar` do sites.yaml:
   auto     -> publica direto
   rascunho -> vai para o WordPress como DRAFT, esperando olho humano
 
-Sem ANTHROPIC_API_KEY nada e' escrito e nada e' publicado: aqui nao ha' base
+Sem OPENAI_API_KEY nada e' escrito e nada e' publicado: aqui nao ha' base
 para um template dizer algo de verdade, e texto vazio e' justamente o que a
 politica de conteudo em escala do Google descreve.
 """
@@ -116,6 +116,13 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
         return {"site": nome, "publicados": 0, "falhas": 0}
 
     pode_publicar = site.get("publicacao", {}).get("radar") == "auto"
+    if not llm.tem_chave():
+        # Sem chave o gerador devolve None em silencio (e' o modo sem LLM,
+        # por desenho) e cada pauta viraria um "[pulada]" sem motivo. Em
+        # 28/09/2026 o secret sumiu do Actions e a rodada ficou 2h vermelha
+        # sem dizer por que. Avisa UMA vez, aqui.
+        print("  sem OPENAI_API_KEY: nenhum guia sera' escrito (so' reaproveita "
+              "texto ja' salvo)")
     leia_tambem = leitor.artigos_recentes(nome)
     SAIDA.mkdir(exist_ok=True)
     publicados = falhas = 0
@@ -124,7 +131,7 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
         ref = f"guia-{pt['id']}"
         # IDEMPOTENTE: o guia ja' escrito numa rodada anterior (e que nao
         # chegou ao WP — 401 de credencial, site fora do ar) e' reaproveitado
-        # do banco. So' chama o Claude quando NAO ha' texto salvo. Antes de
+        # do banco. So' chama o modelo quando NAO ha' texto salvo. Antes de
         # 26/09/2026 cada ciclo de 30 min reescrevia os mesmos 12 guias
         # enquanto o WP recusasse — o maior custo de API do radar.
         existente = leitor.artigo_existente(nome, "guia", ref)
