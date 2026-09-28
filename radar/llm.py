@@ -54,8 +54,11 @@ def tem_chave() -> bool:
 
 def _registra_falha(mensagem: str) -> None:
     _falhas.append(mensagem)
-    if mensagem not in _impressas:
-        _impressas.add(mensagem)
+    # O request-id muda a cada chamada; sem tira-lo da chave, o mesmo 429
+    # sairia uma vez por pauta (foram 40 linhas iguais na rodada de 28/09).
+    chave = mensagem.split(" (request ")[0]
+    if chave not in _impressas:
+        _impressas.add(chave)
         print(f"  [llm] {mensagem}")
 
 
