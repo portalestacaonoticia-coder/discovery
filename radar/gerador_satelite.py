@@ -142,7 +142,7 @@ def _apendices(site: dict, serie: list[dict], leia_tambem: list[dict],
 
 def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
                site: dict) -> dict | None:
-    """Escreve o satelite com o gpt-6-luna (radar/llm.py). None se nao houver chave ou falhar
+    """Escreve o satelite com o gpt-5.6-luna (radar/llm.py). None se nao houver chave ou falhar
     — quem chama cai no template. Os guarda-corpos vao no prompt: gancho
     atribuido a fonte, corpo ancorado no dado, fecho com link ancora."""
     if not llm.tem_chave():
@@ -249,7 +249,7 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
 
 def monta(pauta: dict, serie: list[dict], url_ancora: str | None,
           site: dict, leia_tambem: list[dict] | None = None) -> dict:
-    """Satelite pelo gpt-6-luna quando ha' chave; senao, pelo template. Ambos
+    """Satelite pelo gpt-5.6-luna quando ha' chave; senao, pelo template. Ambos
     respeitam os mesmos guarda-corpos (fonte atribuida, dado proprio, link)
     e ganham os apendices deterministicos: conversao do dia + Leia tambem."""
     art = _monta_llm(pauta, serie, url_ancora, site) \

@@ -5,7 +5,7 @@
     python -m radar.publicar                    # todos os sites do fluxo generico
 
 Pega as pautas que a selecao aprovou hoje, ja' MADURAS (horario_sugerido
-vencido), respeita o teto por hub, escreve o guia de servico com o gpt-6-luna
+vencido), respeita o teto por hub, escreve o guia de servico com o gpt-5.6-luna
 (radar/gerador_artigo.py) e publica no WordPress com imagem destacada.
 Cada pauta vira 'publicada' depois — nao se repete.
 

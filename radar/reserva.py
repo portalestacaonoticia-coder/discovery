@@ -66,7 +66,7 @@ def _extenso(d) -> str:
 
 def monta_reserva(serie: list[dict], site: dict, url_ancora: str | None,
                   hoje) -> dict:
-    """Nota-reserva do dia: so' numeros da base. gpt-6-luna quando ha' chave;
+    """Nota-reserva do dia: so' numeros da base. gpt-5.6-luna quando ha' chave;
     template deterministico como fallback."""
     n = _numeros(serie)
     mov = ("subiu" if (n["var_dia"] or 0) > 0.005

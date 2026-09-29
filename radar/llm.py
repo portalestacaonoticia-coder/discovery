@@ -1,4 +1,4 @@
-"""Ponte unica com a OpenAI (gpt-6-luna). Melhoria, nunca dependencia: sem
+"""Ponte unica com a OpenAI (gpt-5.6-luna). Melhoria, nunca dependencia: sem
 chave, devolve None e quem chama cai no seu proprio fallback.
 
 Toda chamada ao modelo passa por aqui — classificacao, satelites, guias,
@@ -27,7 +27,7 @@ import requests
 from .config import env
 
 # Modelo unico de geracao de artigos. Trocar aqui muda todas as esteiras.
-MODELO_LLM = "gpt-6-luna"
+MODELO_LLM = "gpt-5.6-luna"
 # Classificacao de pauta: tarefa curta, JSON de 300 tokens por noticia nova.
 # Mesmo modelo por padrao; se o volume pesar no custo, troque so' este.
 MODELO_CLASSIFICA = MODELO_LLM

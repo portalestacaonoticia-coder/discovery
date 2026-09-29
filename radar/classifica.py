@@ -1,6 +1,6 @@
 """Classificacao: a pauta interessa? de que hub e'? que angulo cabe?
 
-Dois modos, na ordem: se OPENAI_API_KEY existir, usa o gpt-6-luna pela ponte
+Dois modos, na ordem: se OPENAI_API_KEY existir, usa o gpt-5.6-luna pela ponte
 unica (llm.py); se nao, cai no modo por palavra-chave. O radar funciona sem chave nenhuma — a chave
 so' melhora a qualidade da leitura.
 

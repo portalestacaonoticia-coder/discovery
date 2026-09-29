@@ -38,7 +38,7 @@ Vercel (`radar-web/api/tick-radar.ts`; o workflow nao tem `schedule` proprio,
 para nao rodar em dobro) — os segredos vao em
 Settings → Secrets → Actions (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
 `DISCORD_WEBHOOK`, `OPENAI_API_KEY` para classificar as pautas e escrever os
-artigos com o gpt-6-luna).
+artigos com o gpt-5.6-luna).
 
 ## Painel de acompanhamento
 
@@ -172,7 +172,7 @@ python -m radar.publicar                   # todos (roda no cron do radar.yml)
 
 Guia que ficou escrito e nunca publicado (o WP recusou naquele dia, e a
 esteira so' olha as pautas do dia corrente) vai para o WordPress como
-**rascunho**, sem chamar o gpt-6-luna de novo, para o editor ler e publicar na mao:
+**rascunho**, sem chamar o gpt-5.6-luna de novo, para o editor ler e publicar na mao:
 
 ```bash
 python -m radar.rascunhos --seco           # lista o estoque, nao envia
@@ -185,7 +185,7 @@ No GitHub, o workflow **rascunhos (guias antigos para o WP)** faz o mesmo
 
 Entra neste fluxo quem tem bloco `wordpress` e **nao** tem `base` no
 `sites.yaml`. Ela pega as pautas que a selecao aprovou hoje e ja' estao maduras
-(horario vencido), respeita o teto por hub, escreve com o gpt-6-luna e publica com
+(horario vencido), respeita o teto por hub, escreve com o gpt-5.6-luna e publica com
 imagem destacada. Cada pauta vira `publicada` e nao se repete.
 
 **O que ela escreve — e o que ela nao escreve.** `radar/gerador_artigo.py`

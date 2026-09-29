@@ -1,7 +1,7 @@
 name: publicar (ensaio)
 
 # Ensaio da esteira dos blogs: escreve os guias de verdade (gasta cota da
-# OpenAI, gpt-6-luna) e IMPRIME, mas nao grava no banco e NAO publica nada no WordPress.
+# OpenAI, gpt-5.6-luna) e IMPRIME, mas nao grava no banco e NAO publica nada no WordPress.
 # E' o jeito de ver o que sairia antes de confiar no cron.
 #
 # Actions -> "publicar (ensaio)" -> Run workflow.
