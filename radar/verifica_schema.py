@@ -70,8 +70,12 @@ def existe(base: str, chave: str, tabela: str, coluna: str) -> bool | None:
         return None
     if r.ok:
         return True
-    # 42703 = undefined_column no Postgres
-    if r.status_code in (400, 404) and ("42703" in r.text or coluna in r.text):
+    # 42703 = undefined_column; 42P01 = undefined_table; PGRST205 = o
+    # PostgREST nao acha a tabela no cache do schema. Tabela que nao existe
+    # e' coluna que falta, para efeito de "o que aplicar".
+    if r.status_code in (400, 404) and any(
+            marca in r.text for marca in ("42703", "42P01", "PGRST205",
+                                          "Could not find the table", coluna)):
         return False
     print(f"  resposta inesperada para {tabela}.{coluna}: "
           f"HTTP {r.status_code} {r.text[:160]}")
