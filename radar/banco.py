@@ -14,6 +14,10 @@ class Banco:
         self.cliente = None
         self._memoria: set[str] = set()   # dedup em modo seco
         self._cotacoes: list[dict] = []   # serie em memoria no modo seco
+        # motor discover em modo seco: sinais e topicos ficam so' na memoria
+        self._sinais: list[dict] = []
+        self._coletas: list[dict] = []
+        self._topicos: list[dict] = []
         if not seco:
             from supabase import create_client
             self.cliente = create_client(env("SUPABASE_URL", True),
@@ -371,6 +375,127 @@ class Banco:
             return
         (self.cliente.table("pautas").update({"status": "publicada"})
          .eq("id", pauta_id).execute())
+
+    # -- motor discover: sinais, coletas, topicos ----------------------------
+    # Tabelas de sql/discover-2026-10.sql. Em modo seco tudo fica na memoria
+    # da rodada, entao o ensaio (--seco) agrupa e pontua sem gravar.
+
+    def ultima_coleta(self, site: str, hub: str, fonte: str, consulta: str) -> str | None:
+        """Quando esta fonte/consulta foi coletada pela ultima vez (ISO), ou
+        None. E' o TTL que segura o custo das fontes pagas."""
+        if self.seco or not self.cliente:
+            for c in reversed(self._coletas):
+                if (c["site"], c["hub"], c["fonte"], c["consulta"]) == (site, hub, fonte, consulta):
+                    return c["coletado_em"]
+            return None
+        r = (self.cliente.table("coletas").select("coletado_em")
+             .eq("site", site).eq("hub", hub).eq("fonte", fonte).eq("consulta", consulta)
+             .order("coletado_em", desc=True).limit(1).execute())
+        return r.data[0]["coletado_em"] if r.data else None
+
+    def registra_coleta(self, coleta: dict) -> None:
+        if self.seco or not self.cliente:
+            self._coletas.append(coleta)
+            return
+        try:
+            self.cliente.table("coletas").insert(coleta).execute()
+        except Exception as erro:
+            print(f"  aviso: coleta nao registrada ({str(erro)[:120]}) — "
+                  f"aplique sql/discover-2026-10.sql")
+
+    def coletas_hoje(self, fonte: str, inicio_dia_iso: str) -> int:
+        """Quantas chamadas desta fonte ja' foram feitas hoje (todos os
+        sites) — o teto diario da SerpAPI e' por conta, nao por site."""
+        if self.seco or not self.cliente:
+            return sum(1 for c in self._coletas if c["fonte"] == fonte)
+        r = (self.cliente.table("coletas").select("id", count="exact")
+             .eq("fonte", fonte).gte("coletado_em", inicio_dia_iso).execute())
+        return r.count or 0
+
+    def grava_sinais(self, sinais: list[dict]) -> None:
+        """Upsert ignorando repetidos: o mesmo sinal no mesmo dia nao duplica."""
+        if not sinais:
+            return
+        if self.seco or not self.cliente:
+            vistos = {(s["site"], s["hub"], s["fonte"], s["dia"], s["hash_dedup"])
+                      for s in self._sinais}
+            for s in sinais:
+                chave = (s["site"], s["hub"], s["fonte"], s["dia"], s["hash_dedup"])
+                if chave not in vistos:
+                    vistos.add(chave)
+                    self._sinais.append(s)
+            return
+        try:
+            self.cliente.table("sinais").upsert(
+                sinais, on_conflict="site,hub,fonte,dia,hash_dedup",
+                ignore_duplicates=True).execute()
+        except Exception as erro:
+            print(f"  aviso: sinais nao gravados ({str(erro)[:120]}) — "
+                  f"aplique sql/discover-2026-10.sql")
+
+    def sinais_recentes(self, site: str, hub: str, dias: int = 30,
+                        limite: int = 2000) -> list[dict]:
+        if self.seco or not self.cliente:
+            return [s for s in self._sinais if s["site"] == site and s["hub"] == hub]
+        from datetime import date, timedelta
+        desde = (date.today() - timedelta(days=dias)).isoformat()
+        r = (self.cliente.table("sinais").select("*")
+             .eq("site", site).eq("hub", hub).gte("dia", desde)
+             .order("dia", desc=True).limit(limite).execute())
+        return list(r.data or [])
+
+    def topicos_recentes(self, site: str, hub: str, dias: int = 7) -> list[dict]:
+        if self.seco or not self.cliente:
+            return [t for t in self._topicos if t["site"] == site and t["hub"] == hub]
+        from datetime import date, timedelta
+        desde = (date.today() - timedelta(days=dias)).isoformat()
+        r = (self.cliente.table("topicos")
+             .select("id,chave,rotulo,pontuacao,status,pauta_id,primeiro_visto,dia")
+             .eq("site", site).eq("hub", hub).gte("dia", desde)
+             .order("dia", desc=True).limit(500).execute())
+        return list(r.data or [])
+
+    def grava_topico(self, topico: dict) -> int | None:
+        """Upsert por (site, hub, chave, dia): a mesma rodada de 30 min
+        atualiza a nota do topico do dia em vez de empilhar linhas."""
+        if self.seco or not self.cliente:
+            self._topicos.append(topico)
+            return None
+        try:
+            r = (self.cliente.table("topicos")
+                 .upsert(topico, on_conflict="site,hub,chave,dia").execute())
+            return r.data[0]["id"] if r.data else None
+        except Exception as erro:
+            print(f"  aviso: topico nao gravado ({str(erro)[:120]}) — "
+                  f"aplique sql/discover-2026-10.sql")
+            return None
+
+    def marca_topico(self, topico_id: int, status: str, pauta_id: int | None = None) -> None:
+        if self.seco or not self.cliente or not topico_id:
+            return
+        campos = {"status": status}
+        if pauta_id:
+            campos["pauta_id"] = pauta_id
+        self.cliente.table("topicos").update(campos).eq("id", topico_id).execute()
+
+    def artigos_publicados_do_hub(self, site: str, hub: str, limite: int = 50) -> list[dict]:
+        """O que o site ja' publicou neste hub — base da autoridade topica e
+        da lacuna de informacao."""
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("artigos").select("titulo,url_publicada")
+             .eq("site", site).eq("hub", hub).eq("status", "publicada")
+             .order("criado_em", desc=True).limit(limite).execute())
+        return list(r.data or [])
+
+    def execucao_hoje(self, fluxo: str, site: str, inicio_dia_iso: str) -> bool:
+        """Ja' houve rodada deste fluxo hoje? Serve para avisar UMA vez por
+        dia (o cron roda 48x)."""
+        if self.seco or not self.cliente:
+            return False
+        r = (self.cliente.table("execucoes").select("id", count="exact")
+             .eq("fluxo", fluxo).eq("site", site).gte("inicio", inicio_dia_iso).execute())
+        return bool(r.count)
 
     # -- execucoes -----------------------------------------------------------
 

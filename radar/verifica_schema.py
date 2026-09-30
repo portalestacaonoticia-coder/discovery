@@ -40,6 +40,21 @@ EXIGIDAS = [
     ("itens", "relevante", "sql/itens-relevante-2026-09.sql",
      "descarte do classificador; sem ela o modelo reclassifica a mesma "
      "manchete a cada ciclo"),
+    # Motor Discover (radar/motor.py)
+    ("coletas", "coletado_em", "sql/discover-2026-10.sql",
+     "TTL das fontes de sinal; sem ela a SerpAPI e' chamada a cada 30 min"),
+    ("sinais", "hash_dedup", "sql/discover-2026-10.sql",
+     "sinais coletados (manchetes, PAA, Trends, social)"),
+    ("topicos", "pontuacao", "sql/discover-2026-10.sql",
+     "topicos agrupados com DiscoverScore"),
+    ("pautas", "brief", "sql/discover-2026-10.sql",
+     "brief editorial da pauta (Etapa 2)"),
+    ("pautas", "topico_id", "sql/discover-2026-10.sql",
+     "topico que originou a pauta"),
+    ("artigos", "checagem", "sql/discover-2026-10.sql",
+     "relatorio da checagem de qualidade (Etapa 3)"),
+    ("metas", "producao_inicio", "sql/discover-2026-10.sql",
+     "plano de producao: de quando ate quando o site produz"),
 ]
 
 

@@ -21,12 +21,19 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
+      # Sites com `motor: discover` tambem rodam o motor novo aqui (sinais,
+      # topicos, DiscoverScore — radar/motor.py). As chaves abaixo sao dele;
+      # faltando, o motor segue so' com o RSS gratis.
       - run: python -m radar.principal
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       # Satelites saem AQUI (a cada ciclo, todos os dias, fim de semana
       # incluso), respeitando o horario_sugerido de cada pauta: quente sai no
       # proximo ciclo, fixa espera o slot dela. Idempotente + teto por hub/dia,

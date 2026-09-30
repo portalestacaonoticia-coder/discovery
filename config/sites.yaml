@@ -170,6 +170,16 @@ sites:
     idioma: pt-BR
     fuso: America/Sao_Paulo
 
+    # Motor Discover (radar/motor.py), Etapa 1 em modo sombra: alem do
+    # pipeline antigo, o site coleta sinais (Google News por hub, SERP,
+    # PAA, Trends), agrupa em topicos e pontua (DiscoverScore). So' produz
+    # dentro do periodo de metas.producao_inicio/fim (tela Radar). Apagar
+    # esta linha desliga o motor sem mais nada.
+    motor: discover
+    autor: { nome: "Redação Broune" }
+    estilo_visual: "fotografia editorial de comida, luz natural, cozinha brasileira, sem texto"
+    sinais: { geo: BR, hl: pt-BR }
+
     # SO' RECEITAS (decisao de 18/09/2026): os hubs de economia da cozinha e
     # de alimentacao saudavel sairam. Preco de alimento e nutricao sao pauta
     # de noticia, nao de receita — e hub fora do tema puxa o classificador
@@ -180,21 +190,44 @@ sites:
         url: /receitas-rapidas
         termos: [receita, receitas, rapida, rápida, pratica, prática, facil, fácil, airfryer, air fryer, micro-ondas, 15 minutos, 30 minutos, poucos ingredientes]
         imagem: "quick home cooking"
+        # Motor Discover: quem le e onde buscar sinal. Sem `sinais`, valem os
+        # padroes (noticias e SERP pelos termos/titulo, Trends pelos 2
+        # primeiros termos, social desligado).
+        perfil_leitor: "quem cozinha em casa nos dias de semana, com pouco tempo e ingredientes comuns"
+        sinais:
+          noticias: ["receita rápida OR receita fácil OR airfryer"]
+          serp: ["receitas rápidas para o jantar"]
+          trends: ["receita rápida", "airfryer"]
       - id: doces-sobremesas
         titulo: "Doces e sobremesas"
         url: /doces-e-sobremesas
         termos: [bolo, bolos, torta, doce, doces, sobremesa, sobremesas, pudim, brigadeiro, mousse, cookie, biscoito, brownie, cheesecake]
         imagem: "homemade dessert cake"
+        perfil_leitor: "quem quer fazer um doce em casa para a familia ou para vender"
+        sinais:
+          noticias: ["receita de bolo OR sobremesa OR brigadeiro OR pudim"]
+          serp: ["receita de sobremesa fácil"]
+          trends: ["bolo", "sobremesa"]
       - id: pratos-principais
         titulo: "Pratos principais"
         url: /pratos-principais
         termos: [almoco, almoço, jantar, prato principal, carne, frango, peixe, massa, macarrao, macarrão, arroz, risoto, lasanha, sopa, ensopado]
         imagem: "home cooked main dish"
+        perfil_leitor: "quem decide o almoco ou o jantar da familia todo dia"
+        sinais:
+          noticias: ["receita de frango OR receita de carne OR macarrão OR almoço"]
+          serp: ["o que fazer para o jantar hoje"]
+          trends: ["receita de frango", "jantar"]
       - id: datas-festas
         titulo: "Receitas para datas e festas"
         url: /datas-e-festas
         termos: [natal, pascoa, páscoa, festa junina, ano novo, dia das maes, dia das mães, ceia, festa, comemoracao, comemoração]
         imagem: "festive holiday table food"
+        perfil_leitor: "quem vai receber gente em casa numa data comemorativa"
+        sinais:
+          noticias: ["ceia OR receita de festa OR festa junina OR natal receita"]
+          serp: ["receitas para festa em casa"]
+          trends: ["ceia", "festa junina"]
 
     fontes:
       # Mantem o foco em marmita que o Filipe pediu, mas com OR: sozinha,
