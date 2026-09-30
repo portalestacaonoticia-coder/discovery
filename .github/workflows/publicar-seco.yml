@@ -30,6 +30,24 @@ jobs:
       - name: compila tudo
         run: python -m compileall -q radar/ *.py
 
+      # Testes offline (sem rede, sem banco): selecao antiga e motor discover.
+      - name: testes offline
+        run: |
+          python testar_selecao.py
+          python testar_discover.py
+
+      # Ensaio do motor Discover: coleta sinais DE VERDADE (RSS gratis; SERP
+      # e Trends so' se SERPAPI_KEY existir e o site estiver em producao),
+      # agrupa, pontua e imprime. Nao grava nada.
+      - name: ensaio do motor discover
+        run: python -m radar.motor --seco
+        continue-on-error: true
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+
       # --rede: busca de verdade em cada hub. E' o ponto do ensaio — mostra
       # hub por hub se o acervo tem imagem no tamanho do Discover.
       - name: imagem — medidor e busca real

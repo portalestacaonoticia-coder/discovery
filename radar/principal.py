@@ -12,7 +12,7 @@ import re
 import sys
 from datetime import datetime, timezone
 
-from . import llm
+from . import llm, motor
 from .alerta import avisa
 from .banco import Banco
 from .classifica import avalia, sugere
@@ -165,6 +165,19 @@ def main() -> int:
         except Exception as erro:
             print(f"  selecao de {nome} falhou: {erro}")
             selecionadas = 0
+        # Motor Discover (Etapa 1, modo sombra): o site com `motor: discover`
+        # roda o pipeline antigo acima E o motor novo, que por ora so' coleta
+        # sinais, agrupa em topicos e pontua (radar/motor.py). Falha do motor
+        # nao derruba a coleta; ele registra a propria execucao.
+        if cfg.get("motor") == "discover":
+            try:
+                motor.roda_site_discover(nome, cfg, banco, seco=args.seco)
+            except Exception as erro:
+                print(f"  motor discover de {nome} falhou: {erro}")
+                banco.registra_execucao({
+                    "fluxo": "discover", "site": nome, "status": "erro",
+                    "resumo": str(erro)[:500],
+                    "inicio": datetime.now(timezone.utc).isoformat()})
         banco.registra_execucao({
             "fluxo": "radar", "site": nome, "status": "ok",
             "resumo": f"{r['itens']} itens novos, {r['pautas']} pautas"
