@@ -79,12 +79,14 @@ def main() -> int:
                     "wp_media_id": (existente or {}).get("wp_media_id"),
                 }, {**wp,
                     "usuario": os.environ[wp["usuario_env"]],
-                    "senha_app": os.environ[wp["senha_env"]]}, site)
+                    "senha_app": os.environ[wp["senha_env"]]}, site,
+                    evitar_imagens=banco.imagens_usadas(SITE))
                 banco.marca_publicado(SITE, "ancora", a["referencia"],
                                       resultado["id"], resultado.get("link"),
                                       "publicada", resultado.get("midia_id"),
                                       resultado.get("imagem_url"),
-                                      resultado.get("imagem_credito"))
+                                      resultado.get("imagem_credito"),
+                                      imagem_origem=resultado.get("imagem_origem"))
                 publicados += 1
                 print(f"  no ar: {resultado.get('link')}")
             except (ErroWordPress, KeyError) as erro:

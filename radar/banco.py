@@ -145,12 +145,30 @@ class Banco:
              .limit(1).execute())
         return r.data[0] if r.data else None
 
+    def imagens_usadas(self, site: str, limite: int = 200) -> set[str]:
+        """URLs de origem das capas que o site ja' usou (artigos.imagem_origem),
+        as mais recentes. A busca de imagem pula essas — tres posts seguidos
+        com a mesma foto (doll, 25/09/2026) e' o que o Discover le como
+        conteudo repetido."""
+        if self.seco or not self.cliente:
+            return set()
+        try:
+            r = (self.cliente.table("artigos").select("imagem_origem")
+                 .eq("site", site).not_.is_("imagem_origem", "null")
+                 .order("criado_em", desc=True).limit(limite).execute())
+        except Exception as erro:
+            print(f"  aviso: nao li as capas usadas ({str(erro)[:120]}) — "
+                  f"aplique sql/imagem-origem-2026-10.sql")
+            return set()
+        return {l["imagem_origem"] for l in (r.data or []) if l.get("imagem_origem")}
+
     def marca_publicado(self, site: str, tipo: str, referencia: str,
                         post_id: int, url: str | None,
                         status: str = "publicada",
                         midia_id: int | None = None,
                         imagem_url: str | None = None,
-                        imagem_credito: str | None = None) -> None:
+                        imagem_credito: str | None = None,
+                        imagem_origem: str | None = None) -> None:
         """So' aqui o artigo vira 'publicada': o status acompanha o que o
         WordPress confirmou. Sem esse passo, uma falha de publicacao deixava
         o artigo 'publicada' no banco sem nunca ter ido ao ar.
@@ -167,8 +185,21 @@ class Banco:
             campos["imagem_url"] = imagem_url
         if imagem_credito:
             campos["imagem_credito"] = imagem_credito
-        (self.cliente.table("artigos").update(campos)
-         .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
+        if imagem_origem:
+            campos["imagem_origem"] = imagem_origem
+        try:
+            (self.cliente.table("artigos").update(campos)
+             .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
+        except Exception as erro:
+            if "imagem_origem" not in campos:
+                raise
+            # Coluna nova ainda nao aplicada: grava o resto e avisa, em vez
+            # de deixar o artigo sem wp_post_id (ele seria republicado).
+            print(f"  aviso: imagem_origem nao gravada ({str(erro)[:100]}) — "
+                  f"aplique sql/imagem-origem-2026-10.sql")
+            campos.pop("imagem_origem")
+            (self.cliente.table("artigos").update(campos)
+             .eq("site", site).eq("tipo", tipo).eq("referencia", referencia).execute())
 
     # -- selecao automatica de pautas ---------------------------------------
 

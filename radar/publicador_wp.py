@@ -214,12 +214,16 @@ def _jsonld_com_imagem(jsonld: str | None, url_imagem: str | None,
     return json.dumps(dados, ensure_ascii=False, indent=2)
 
 
-def publica(artigo: dict, wp: dict, site: dict | None = None) -> dict:
+def publica(artigo: dict, wp: dict, site: dict | None = None,
+            evitar_imagens: set[str] | None = None) -> dict:
     """artigo: linha da tabela 'artigos'. wp: bloco 'wordpress' do sites.yaml
     ja' com usuario e senha resolvidos. site: bloco inteiro do site — quando
     vem, o post ganha imagem destacada (exigencia do Discover).
+    evitar_imagens: origens das capas que o site ja' usou
+    (banco.imagens_usadas) — a busca nao repete capa.
 
-    Devolve {id, link, status, midia_id, imagem_url, imagem_credito}.
+    Devolve {id, link, status, midia_id, imagem_url, imagem_credito,
+    imagem_origem}.
     """
     base = wp["url"].rstrip("/")
     cab = _cabecalho(wp["usuario"], wp["senha_app"])
@@ -229,18 +233,20 @@ def publica(artigo: dict, wp: dict, site: dict | None = None) -> dict:
     midia_id = artigo.get("wp_media_id")
     imagem_url = artigo.get("imagem_url")
     imagem_credito = artigo.get("imagem_credito")
+    imagem_origem = artigo.get("imagem_origem")
     largura = altura = None
 
     if site and not midia_id:
         from . import imagens
         consulta = imagens.consulta_do_hub(site, artigo.get("hub"))
-        achada = imagens.busca(consulta) if consulta else None
+        achada = imagens.busca(consulta, evitar_imagens) if consulta else None
         if achada:
             enviada = envia_midia(base, cab, achada, artigo["titulo"])
             if enviada:
                 midia_id = enviada["id"]
                 imagem_url = enviada["source_url"]
                 imagem_credito = achada.get("credito")
+                imagem_origem = achada.get("origem_url") or achada.get("url")
                 largura, altura = achada.get("largura"), achada.get("altura")
                 print(f"  [imagem] {largura}x{altura} de {achada.get('fonte')} "
                       f"-> midia {midia_id}")
@@ -292,4 +298,5 @@ def publica(artigo: dict, wp: dict, site: dict | None = None) -> dict:
             f"HTTP {r.status_code} sem JSON de post: {(r.text or '').strip()[:200] or 'corpo vazio'}")
     return {"id": dados["id"], "link": dados.get("link"),
             "status": dados.get("status"), "midia_id": midia_id,
-            "imagem_url": imagem_url, "imagem_credito": imagem_credito}
+            "imagem_url": imagem_url, "imagem_credito": imagem_credito,
+            "imagem_origem": imagem_origem}

@@ -193,14 +193,16 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
                 "wp_media_id": (existente or {}).get("wp_media_id"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
-                "senha_app": os.environ[wp["senha_env"]]}, site)
+                "senha_app": os.environ[wp["senha_env"]]}, site,
+                evitar_imagens=banco.imagens_usadas(nome))
             # Confirmado no WP: agora sim o status reflete a realidade.
             banco.marca_publicado(nome, "guia", ref, resultado["id"],
                                   resultado.get("link"),
                                   "publicada" if pode_publicar else "rascunho",
                                   resultado.get("midia_id"),
                                   resultado.get("imagem_url"),
-                                  resultado.get("imagem_credito"))
+                                  resultado.get("imagem_credito"),
+                                  imagem_origem=resultado.get("imagem_origem"))
             # So' some da fila quando de fato foi para o WP — mesmo como
             # rascunho, porque o texto ja' existe e nao se reescreve.
             banco.marca_pauta_publicada(pt["id"])

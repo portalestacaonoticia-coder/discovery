@@ -46,7 +46,9 @@ TEMPO_LIMITE = 20
 # Acima disso nao vale a pena: o upload para o WP fica lento e o Core Web
 # Vitals (tambem cobrado pelo Discover) piora.
 MAX_BYTES = 8 * 1024 * 1024
-CANDIDATOS = 8
+# 24 (era 8): com a lista de capas ja' usadas pelo site, a busca precisa de
+# folga para achar uma foto nova na mesma consulta do hub.
+CANDIDATOS = 24
 # Teto do acesso ANONIMO do Openverse: 21 ja' devolve 401 Unauthorized.
 # Nao subir sem registrar uma aplicacao e mandar token.
 CANDIDATOS_OPENVERSE = 20
@@ -232,12 +234,20 @@ def credito_de(img: dict) -> str:
     return " / ".join(partes)
 
 
-def busca(consulta: str) -> dict | None:
-    """A primeira imagem que REALMENTE cumpre o criterio do Discover.
+def busca(consulta: str, evitar: set[str] | None = None) -> dict | None:
+    """A primeira imagem que REALMENTE cumpre o criterio do Discover e que o
+    site ainda nao usou.
 
     Tenta a consulta do hub e, se nada servir, uma versao encurtada — termo de
     4 palavras acha pouco no acervo livre, e 2 palavras costumam resolver
     ("gas station fuel pump car" -> "gas station").
+
+    `evitar`: URLs de origem (pagina da foto no acervo) ja' usadas pelo site
+    (banco.imagens_usadas). Sem isso, a consulta do hub devolvia sempre a
+    mesma primeira foto e tres posts seguidos saiam com a mesma capa — o
+    Discover le isso como conteudo repetido. Se TODAS as candidatas ja'
+    foram usadas, devolve a primeira que serve: capa repetida ainda e'
+    melhor que post sem imagem.
 
     Devolve {conteudo: bytes, tipo, largura, altura, alt, credito, ...} ou
     None — sem provedor, sem resultado ou nenhum candidato no tamanho.
@@ -250,14 +260,22 @@ def busca(consulta: str) -> dict | None:
         tentativas.append(curta)
 
     for tentativa in tentativas:
-        achada = _tenta(tentativa)
+        achada = _tenta(tentativa, evitar or set())
         if achada:
             return achada
+    if evitar:
+        for tentativa in tentativas:
+            achada = _tenta(tentativa, set())
+            if achada:
+                print("  [imagem] todas as candidatas ja' usadas; repetindo capa")
+                return achada
     return None
 
 
-def _tenta(consulta: str) -> dict | None:
+def _tenta(consulta: str, evitar: set[str]) -> dict | None:
     for cand in _candidatos(consulta):
+        if cand.get("origem_url") in evitar or cand.get("url") in evitar:
+            continue
         # Descarta cedo pelo tamanho declarado, para nao baixar o que ja' se
         # sabe pequeno. Sem os campos, segue para a medicao real.
         l, a = cand.get("largura"), cand.get("altura")

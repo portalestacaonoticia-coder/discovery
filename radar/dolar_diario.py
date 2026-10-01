@@ -161,14 +161,16 @@ def main() -> int:
                 "wp_media_id": (existente or {}).get("wp_media_id"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
-                "senha_app": os.environ[wp["senha_env"]]}, site)
+                "senha_app": os.environ[wp["senha_env"]]}, site,
+                evitar_imagens=banco.imagens_usadas(SITE))
             # Confirmado no WP: agora sim o status reflete a realidade.
             status = "publicada" if pode_publicar else "rascunho"
             banco.marca_publicado(SITE, "calendario", hoje["data"].isoformat(),
                                   resultado["id"], resultado.get("link"), status,
                                   resultado.get("midia_id"),
                                   resultado.get("imagem_url"),
-                                  resultado.get("imagem_credito"))
+                                  resultado.get("imagem_credito"),
+                                  imagem_origem=resultado.get("imagem_origem"))
             link = resultado.get("link")
         except (ErroWordPress, KeyError) as erro:
             # Falha de publicacao nao pode perder o artigo: ele ja' esta' no banco

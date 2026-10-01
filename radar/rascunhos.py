@@ -94,12 +94,14 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
                 "imagem_credito": existente.get("imagem_credito"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
-                "senha_app": os.environ[wp["senha_env"]]}, site)
+                "senha_app": os.environ[wp["senha_env"]]}, site,
+                evitar_imagens=banco.imagens_usadas(nome))
             banco.marca_publicado(nome, "guia", ref, resultado["id"],
                                   resultado.get("link"), "rascunho",
                                   resultado.get("midia_id"),
                                   resultado.get("imagem_url"),
-                                  resultado.get("imagem_credito"))
+                                  resultado.get("imagem_credito"),
+                                  imagem_origem=resultado.get("imagem_origem"))
             banco.marca_pauta_publicada(pt["id"])
             enviados += 1
             print(f"  [rascunho] {art['titulo']} -> post {resultado['id']}")
