@@ -77,6 +77,7 @@ def resumo_falhas() -> str:
 def limpa_falhas() -> None:
     _falhas.clear()
     _impressas.clear()
+    _serpapi_fora[0] = None
 
 
 def tem_serpapi() -> bool:
@@ -117,10 +118,17 @@ def _manchete_limpa(titulo: str) -> tuple[str, str]:
 
 # -- SerpAPI ------------------------------------------------------------------
 
+# Disjuntor da rodada: depois de um 401/403/429 a SerpAPI nao e' chamada de
+# novo ate' o proximo processo (limpa_falhas() rearma).
+_serpapi_fora: list[str | None] = [None]
+
+
 def _serpapi(params: dict) -> dict:
     chave = env("SERPAPI_KEY")
     if not chave:
         raise ErroSinal("sem SERPAPI_KEY")
+    if _serpapi_fora[0]:
+        raise ErroSinal(_serpapi_fora[0])
     try:
         r = requests.get(URL_SERPAPI, params={**params, "api_key": chave},
                          headers=CABECALHO, timeout=TIMEOUT_S)
@@ -132,6 +140,11 @@ def _serpapi(params: dict) -> dict:
         dados = {}
     if not r.ok:
         msg = (dados.get("error") if isinstance(dados, dict) else None) or r.text[:120]
+        if r.status_code in (401, 403, 429):
+            # Chave invalida ou cota esgotada: nao adianta tentar os outros
+            # hubs nesta rodada. O TTL nao e' registrado, entao a proxima
+            # rodada tenta de novo.
+            _serpapi_fora[0] = f"SerpAPI HTTP {r.status_code}: {msg}"
         raise ErroSinal(f"SerpAPI HTTP {r.status_code} ({params.get('engine')}): {msg}")
     if isinstance(dados, dict) and dados.get("error"):
         raise ErroSinal(f"SerpAPI ({params.get('engine')}): {dados['error']}")
