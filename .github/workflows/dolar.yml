@@ -30,6 +30,7 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       # Os textos ancora (guias de servico) atualizam os numeros do dia na
       # mesma janela. if: always() — atualizam mesmo se o artigo do dia falhar,
       # porque sao paginas independentes.
@@ -41,6 +42,7 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           WP_DOLL_USUARIO: ${{ secrets.WP_DOLL_USUARIO }}
           WP_DOLL_SENHA: ${{ secrets.WP_DOLL_SENHA }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       # (Os satelites moraram aqui ate 28/08; foram para o radar.yml — rodam a
       # cada 30 min, todos os dias, respeitando o horario de cada pauta.)
       - uses: actions/upload-artifact@v4
