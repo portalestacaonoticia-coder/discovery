@@ -27,9 +27,11 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
 
 from . import llm
+# As funcoes de fontes/dominios moram em radar/pesquisa.py desde o motor
+# Discover; ficam importadas aqui porque este modulo e outros as usam.
+from .pesquisa import _busca, _dominios_do_hub, _fontes_do_hub  # noqa: F401
 
 FUSO_SP = timezone(timedelta(hours=-3))
 
@@ -54,44 +56,6 @@ def _hub_de(site: dict, hub_id: str | None) -> dict:
         if h.get("id") == hub_id:
             return h
     return {}
-
-
-def _fontes_do_hub(hub: dict) -> list[dict]:
-    """As fontes oficiais configuradas no hub (sites.yaml -> hubs[].fontes):
-    lista de {nome, url}. Entrada sem nome ou sem URL e' ignorada."""
-    uteis = []
-    for f in hub.get("fontes") or []:
-        if isinstance(f, dict) and f.get("nome") and f.get("url"):
-            uteis.append({"nome": str(f["nome"]).strip(), "url": str(f["url"]).strip()})
-    return uteis
-
-
-def _dominios_do_hub(hub: dict) -> list[str]:
-    """Dominios em que a busca pode entrar: os das `fontes` do hub (sem o
-    'www.'; a API cobre os subdominios, entao 'gov.br' alcanca detran.*.gov.br
-    e planalto.gov.br) mais o que estiver em `pesquisa` no hub. Sem nada
-    configurado, nao ha' busca — fonte ou e' oficial ou nao entra."""
-    dominios: list[str] = []
-    for f in _fontes_do_hub(hub):
-        host = (urlparse(f["url"]).netloc or "").lower().removeprefix("www.")
-        if host and host not in dominios:
-            dominios.append(host)
-    for d in hub.get("pesquisa") or []:
-        d = str(d).strip().lower().removeprefix("https://").removeprefix("http://")
-        d = d.removeprefix("www.").rstrip("/")
-        if d and d not in dominios:
-            dominios.append(d)
-    return dominios
-
-
-def _busca(site: dict, hub: dict) -> list[str]:
-    """Dominios da busca, ou [] se ela esta' desligada: hub sem fontes, ou
-    `pesquisa: false` no site. E' a UNICA decisao — o prompt e a chamada
-    consultam a mesma funcao, senao o prompt promete ao modelo uma
-    ferramenta que a chamada nao passa."""
-    if site.get("pesquisa", True) is False:
-        return []
-    return _dominios_do_hub(hub)
 
 
 def _bloco_fontes(hub: dict, citacoes: list[dict] | None = None) -> str:
@@ -214,13 +178,153 @@ def _prompt(pauta: dict, site: dict, hub: dict, leia_tambem: list[dict]) -> str:
     return "\n".join(partes)
 
 
+def _jsonld(titulo: str, resumo: str, site: dict, hub: dict) -> str:
+    agora = datetime.now().astimezone().isoformat(timespec="seconds")
+    return json.dumps({
+        "@context": "https://schema.org",
+        # Article, nao NewsArticle: isto e' guia de servico, nao cobertura de
+        # fato apurado. Marcar como noticia o que nao e' noticia e' mentir
+        # para o rastreador.
+        "@type": "Article",
+        "headline": titulo, "description": resumo,
+        "datePublished": agora, "dateModified": agora,
+        "inLanguage": site.get("idioma", "pt-BR"), "isAccessibleForFree": True,
+        "publisher": {"@type": "Organization", "name": site["entidade"]},
+        "about": {"@type": "Thing", "name": hub.get("titulo") or site["entidade"]},
+    }, ensure_ascii=False, indent=2)
+
+
+def _le_json_artigo(saida: str | None) -> tuple[str, str, str] | None:
+    """(titulo, corpo, resumo) do JSON do modelo, ou None se nao serve."""
+    if not saida:
+        return None
+    bruto = re.search(r"\{.*\}", saida, re.S)
+    if not bruto:
+        return None
+    try:
+        d = json.loads(bruto.group(0))
+    except json.JSONDecodeError:
+        return None
+    titulo = str(d.get("titulo") or "").strip()[:110]
+    corpo = str(d.get("corpo_md") or "").strip()
+    resumo = str(d.get("resumo") or "").strip()[:280]
+    # Portao de qualidade: guia curto demais nao resolve nada e nao deveria
+    # ocupar uma vaga do dia. Cai fora em vez de virar post raso.
+    if not titulo or len(corpo) < 1200:
+        return None
+    if not resumo:
+        resumo = corpo.split("\n\n")[0][:280]
+    return titulo, corpo, resumo
+
+
+# -- motor Discover: escrita a partir do BRIEF -------------------------------
+
+def _sistema_brief(site: dict, hub: dict) -> str:
+    return (
+        f"Voce e' redator do {site.get('entidade') or site['dominio']}, um site "
+        f"brasileiro. A secao e': {hub.get('titulo') or 'geral'}. Leitor: "
+        f"{hub.get('perfil_leitor') or 'publico geral'}.\n"
+        "Voce escreve a partir de um BRIEF fechado. Regras inegociaveis:\n"
+        "- A manchete promete X; o texto ENTREGA X, logo no comeco e ate o fim.\n"
+        "- Numero, preco, data, lei, prazo, estatistica: SOMENTE os que estao em "
+        "KEY_FACTS, com o mesmo valor. Fora deles, NENHUM numero. Se faltar "
+        "dado, oriente e mande conferir na fonte oficial pelo NOME.\n"
+        "- Cada secao do brief vira um subtitulo markdown (##), na ordem dada, "
+        "cobrindo os pontos listados. Nao crie secoes extras.\n"
+        "- Nada sobre pessoa real nomeada. Nada de \"segundo especialistas\" "
+        "ou \"estudos mostram\".\n"
+        "- Links: SO' os links internos do brief, em markdown, onde fizerem "
+        "sentido. NAO escreva secao de fontes/referencias (o site monta).\n"
+        f"- Portugues do Brasil, tom direto e pratico, {PALAVRAS} palavras. "
+        "Use lista quando for mesmo lista.\n"
+        "Responda SO um JSON valido: {\"titulo\": \"...\", \"resumo\": \"...\", "
+        "\"corpo_md\": \"...\"} — titulo = a discover_headline do brief, resumo = "
+        "o dek, corpo em markdown SEM repetir o titulo como H1.")
+
+
+def _prompt_brief(brief: dict, evidencias: dict) -> str:
+    fatos = brief.get("key_facts") or []
+    partes = [
+        f"MANCHETE (use exatamente): {brief.get('discover_headline')}",
+        f"DEK: {brief.get('dek')}",
+        f"ANGULO: {brief.get('main_angle')}",
+        f"POR QUE AGORA: {brief.get('why_now')}",
+        f"INSIGHT PROPRIO (o que so' este texto diz): {brief.get('original_insight')}",
+        f"Data de hoje: {datetime.now(FUSO_SP).date():%d/%m/%Y}",
+        "KEY_FACTS (os unicos numeros/prazos/regras permitidos):\n"
+        + ("\n".join(f"- f{i + 1}: {f['fato']}" for i, f in enumerate(fatos)) or "- (nenhum: nao afirme numero)"),
+        "SECOES (cada uma vira um ##, nesta ordem):\n"
+        + "\n".join(f"{i + 1}. {s['h2']} — {s.get('objetivo') or ''}"
+                    + ("\n   pontos: " + "; ".join(s.get("pontos") or []) if s.get("pontos") else "")
+                    + ("\n   fatos: " + ", ".join(s.get("fatos_ids") or []) if s.get("fatos_ids") else "")
+                    for i, s in enumerate(brief.get("sections") or [])),
+    ]
+    if evidencias.get("fontes_oficiais"):
+        partes.append("Fontes oficiais (cite pelo nome ao mandar conferir): "
+                      + "; ".join(f["nome"] for f in evidencias["fontes_oficiais"]))
+    if brief.get("internal_links"):
+        partes.append("Links internos permitidos:\n"
+                      + "\n".join(f"- [{l['titulo']}]({l['url']})" for l in brief["internal_links"]))
+    partes.append("\nEscreva o artigo.")
+    return "\n".join(partes)
+
+
+def monta_do_brief(brief: dict, evidencias: dict, site: dict, hub: dict) -> dict | None:
+    """Artigo escrito a partir do brief (motor Discover). Sem busca aqui: a
+    pesquisa ja' foi feita. Devolve o mesmo formato de `monta`."""
+    if not llm.tem_chave():
+        return None
+    saida = llm.gera(_prompt_brief(brief, evidencias), sistema=_sistema_brief(site, hub),
+                     max_tokens=5000)
+    lido = _le_json_artigo(saida)
+    if not lido:
+        return None
+    titulo, corpo, resumo = lido
+    titulo = brief.get("discover_headline") or titulo
+    resumo = brief.get("dek") or resumo
+    citacoes = [{"url": p["url"], "titulo": p.get("titulo")} for p in brief.get("primary_sources") or []]
+    return {"titulo": titulo, "markdown": f"# {titulo}\n\n{corpo}\n" + _bloco_fontes(hub, citacoes),
+            "resumo": resumo, "jsonld": _jsonld(titulo, resumo, site, hub),
+            "citacoes": len(citacoes)}
+
+
+def corrige(artigo: dict, problemas: list[str], brief: dict, evidencias: dict,
+            site: dict, hub: dict) -> dict | None:
+    """Uma unica rodada de correcao dos problemas listados pela checagem,
+    sem inventar dado. None se nao der."""
+    if not llm.tem_chave() or not problemas:
+        return None
+    corpo_atual = (artigo.get("markdown") or "").split("\n## Fontes e onde conferir")[0]
+    prompt = (_prompt_brief(brief, evidencias)
+              + "\n\nO ARTIGO ABAIXO FOI REPROVADO na checagem. Corrija SOMENTE os "
+              "problemas listados, mantendo o resto. Nao acrescente numero que nao "
+              "esteja em KEY_FACTS; se o problema e' um numero sem fato, REMOVA o numero.\n"
+              "PROBLEMAS:\n- " + "\n- ".join(problemas)
+              + "\n\nARTIGO ATUAL:\n" + corpo_atual[:14000])
+    saida = llm.gera(prompt, sistema=_sistema_brief(site, hub), max_tokens=5000)
+    lido = _le_json_artigo(saida)
+    if not lido:
+        return None
+    titulo, corpo, resumo = lido
+    titulo = brief.get("discover_headline") or titulo
+    citacoes = [{"url": p["url"], "titulo": p.get("titulo")} for p in brief.get("primary_sources") or []]
+    return {**artigo, "titulo": titulo,
+            "markdown": f"# {titulo}\n\n{corpo}\n" + _bloco_fontes(hub, citacoes),
+            "resumo": brief.get("dek") or resumo}
+
+
 def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dict | None:
     """Devolve {titulo, markdown, resumo, jsonld} ou None se nao der para
-    escrever com seguranca (sem chave, sem SDK, saida pobre ou malformada)."""
+    escrever com seguranca (sem chave, sem SDK, saida pobre ou malformada).
+
+    Pauta com `brief` (motor Discover) vai por `monta_do_brief`; as demais
+    (radar antigo, calendario) seguem o caminho da manchete."""
     if not llm.tem_chave():
         return None
 
     hub = _hub_de(site, pauta.get("hub"))
+    if pauta.get("brief"):
+        return monta_do_brief(pauta["brief"], pauta.get("evidencias") or {}, site, hub)
     dominios = _busca(site, hub)
     if dominios:
         # Com busca: o modelo le as fontes oficiais antes de escrever, e as
@@ -234,41 +338,11 @@ def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dic
         saida = llm.gera(_prompt(pauta, site, hub, leia_tambem or []),
                          sistema=_sistema(site, hub), max_tokens=4000)
         citacoes = []
-    if not saida:
+    lido = _le_json_artigo(saida)
+    if not lido:
         return None
-
-    bruto = re.search(r"\{.*\}", saida, re.S)
-    if not bruto:
-        return None
-    try:
-        d = json.loads(bruto.group(0))
-    except json.JSONDecodeError:
-        return None
-
-    titulo = str(d.get("titulo") or "").strip()[:110]
-    corpo = str(d.get("corpo_md") or "").strip()
-    resumo = str(d.get("resumo") or "").strip()[:280]
-    # Portao de qualidade: guia curto demais nao resolve nada e nao deveria
-    # ocupar uma vaga do dia. Cai fora em vez de virar post raso.
-    if not titulo or len(corpo) < 1200:
-        return None
-    if not resumo:
-        resumo = corpo.split("\n\n")[0][:280]
-
-    agora = datetime.now().astimezone().isoformat(timespec="seconds")
-    jsonld = json.dumps({
-        "@context": "https://schema.org",
-        # Article, nao NewsArticle: isto e' guia de servico, nao cobertura de
-        # fato apurado. Marcar como noticia o que nao e' noticia e' mentir
-        # para o rastreador.
-        "@type": "Article",
-        "headline": titulo, "description": resumo,
-        "datePublished": agora, "dateModified": agora,
-        "inLanguage": site.get("idioma", "pt-BR"), "isAccessibleForFree": True,
-        "publisher": {"@type": "Organization", "name": site["entidade"]},
-        "about": {"@type": "Thing", "name": hub.get("titulo") or site["entidade"]},
-    }, ensure_ascii=False, indent=2)
-
+    titulo, corpo, resumo = lido
     markdown = f"# {titulo}\n\n{corpo}\n" + _bloco_fontes(hub, citacoes)
     return {"titulo": titulo, "markdown": markdown,
-            "resumo": resumo, "jsonld": jsonld, "citacoes": len(citacoes)}
+            "resumo": resumo, "jsonld": _jsonld(titulo, resumo, site, hub),
+            "citacoes": len(citacoes)}

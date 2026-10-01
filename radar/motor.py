@@ -19,7 +19,7 @@ import argparse
 import sys
 from datetime import datetime, timezone
 
-from . import sinais as mod_sinais
+from . import ideias as mod_ideias, llm, sinais as mod_sinais
 from .alerta import avisa
 from .banco import Banco
 from .config import carrega_sites, env
@@ -44,6 +44,7 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
     hoje_sp = agora.astimezone(FUSO_SP).date()
     inicio = agora
     mod_sinais.limpa_falhas()
+    llm.limpa_falhas()
 
     # No ensaio (--seco) nada e' gravado, mas a LEITURA e' real quando ha'
     # banco: metas (periodo de producao), historico de sinais/topicos e TTL
@@ -65,7 +66,7 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
         for msg in avisos_de_producao(meta, hoje_sp):
             avisa(f"**{nome}**: {msg}")
 
-    total_sinais = total_topicos = 0
+    total_sinais = total_topicos = total_sugeridas = 0
     melhores: list[dict] = []
     for hub in site.get("hubs", []) or []:
         print(f"  [{hub['id']}]")
@@ -111,6 +112,9 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
         for t in topicos[:3]:
             print(f"    {t['pontuacao']:3} pts  {t['rotulo'][:70]}  ({t['motivo']})")
         melhores.extend(topicos[:TOPICOS_GRAVADOS_POR_HUB])
+        # Sugestoes para a tela: os melhores topicos do hub viram ideias
+        # 'sugerida' (marcacao de quem ja' esta' la' e' preservada).
+        total_sugeridas += mod_ideias.sugere_do_motor(banco, nome, hub, topicos, agora)
 
     candidatos = seleciona_topicos(melhores, criterios)
     if candidatos:
@@ -119,15 +123,43 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
     else:
         print(f"  nenhum topico acima do piso ({criterios['minimo']} pts)")
 
+    # Producao: SO' ideias marcadas pela pessoa, dentro do periodo e da meta
+    # do dia. Cada uma vira pauta aprovada com brief; radar/publicar.py
+    # escreve, checa e publica no mesmo ciclo.
+    produzidas = 0
+    marcadas = leitor.ideias_marcadas(nome)
+    if marcadas and produzindo:
+        inicio_dia = inicio_do_dia_sp()
+        vagas = int(meta.get("pautas_por_dia") or 0) - leitor.selecionadas_hoje(nome, inicio_dia)
+        print(f"  {len(marcadas)} ideia(s) marcada(s), {max(vagas, 0)} vaga(s) hoje")
+        hubs = {h["id"]: h for h in site.get("hubs", []) or []}
+        for ideia in marcadas:
+            if vagas <= 0:
+                break
+            hub = hubs.get(ideia.get("hub"))
+            if not hub:
+                print(f"    [ideia {ideia['id']}] hub {ideia.get('hub')} nao existe no sites.yaml")
+                continue
+            if seco:
+                print(f"    [seco] produziria: {ideia['titulo'][:70]}")
+                continue
+            pauta = mod_ideias.produz(ideia, nome, site, hub, banco, leitor, agora)
+            if pauta:
+                produzidas += 1
+                vagas -= 1
+    elif marcadas:
+        print(f"  {len(marcadas)} ideia(s) marcada(s) esperando: {motivo_prod}")
+
     resumo = (f"{total_sinais} sinais novos, {total_topicos} topicos, "
-              f"{len(candidatos)} candidatos"
+              f"{total_sugeridas} sugeridas, {len(marcadas)} marcadas, {produzidas} em producao"
               + ("" if produzindo else f" — {motivo_prod}")
-              + mod_sinais.resumo_falhas())
+              + mod_sinais.resumo_falhas() + llm.resumo_falhas())
     if not seco:
         banco.registra_execucao({"fluxo": "discover", "site": nome, "status": "ok",
                                  "resumo": resumo[:500], "inicio": inicio.isoformat()})
     return {"site": nome, "sinais": total_sinais, "topicos": total_topicos,
-            "candidatos": candidatos, "produzindo": produzindo}
+            "candidatos": candidatos, "produzindo": produzindo,
+            "marcadas": len(marcadas), "produzidas": produzidas}
 
 
 def main() -> int:

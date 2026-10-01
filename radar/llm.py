@@ -33,7 +33,12 @@ MODELO_LLM = "gpt-5.6-luna"
 MODELO_CLASSIFICA = MODELO_LLM
 
 URL_API = "https://api.openai.com/v1/responses"
+URL_IMAGENS = "https://api.openai.com/v1/images/generations"
 TIMEOUT_S = 180
+# Imagem destacada gerada por IA (radar/discover.py). 1536x1024 e' o maior
+# formato paisagem da API e passa com folga no minimo do Discover (1200px).
+MODELO_IMAGEM = "gpt-image-1"
+TAMANHO_IMAGEM = "1536x1024"
 
 # Busca na web da API (cobrada por chamada de busca + tokens das paginas
 # lidas). A API nao tem teto de buscas por pedido: o limite vai no prompt
@@ -244,3 +249,39 @@ def gera_com_busca(prompt: str, dominios: list[str], sistema: str | None = None,
         if buscas > max_buscas:
             print(f"  [busca] passou do teto sugerido de {max_buscas}")
     return (texto or None), citacoes
+
+
+def gera_imagem(prompt: str, tamanho: str = TAMANHO_IMAGEM,
+                qualidade: str = "medium") -> bytes | None:
+    """Bytes JPEG de uma imagem gerada (Images API), ou None. Mesmo registro
+    de falhas das chamadas de texto. Sem chave NAO e' falha."""
+    import base64
+    chave = env("OPENAI_API_KEY")
+    if not chave:
+        return None
+    cabecalhos = {"Authorization": f"Bearer {chave}", "Content-Type": "application/json"}
+    org = env("OPENAI_ORG_ID")
+    if org:
+        cabecalhos["OpenAI-Organization"] = org
+    corpo = {"model": MODELO_IMAGEM, "prompt": prompt[:4000], "n": 1,
+             "size": tamanho, "quality": qualidade, "output_format": "jpeg"}
+    try:
+        r = requests.post(URL_IMAGENS, json=corpo, headers=cabecalhos, timeout=TIMEOUT_S)
+    except requests.RequestException as erro:
+        _registra_falha(f"imagem: sem conexao com a API: {erro}")
+        return None
+    try:
+        dados = r.json()
+    except ValueError:
+        dados = None
+    if not r.ok:
+        detalhe = dados.get("error") if isinstance(dados, dict) else None
+        msg = (detalhe.get("message") if isinstance(detalhe, dict) else None) or (r.text or "")[:160]
+        _registra_falha(f"imagem: HTTP {r.status_code} {msg}")
+        return None
+    try:
+        b64 = (dados.get("data") or [{}])[0].get("b64_json")
+        return base64.b64decode(b64) if b64 else None
+    except Exception as erro:  # noqa: BLE001
+        _registra_falha(f"imagem: resposta inesperada: {erro}")
+        return None
