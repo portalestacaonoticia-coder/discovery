@@ -69,13 +69,16 @@ class Banco:
 
     # -- pautas --------------------------------------------------------------
 
-    def grava_pauta(self, pauta: dict) -> None:
+    def grava_pauta(self, pauta: dict) -> int | None:
+        """Devolve o id (None em modo seco) — o motor discover liga a ideia
+        a pauta por ele."""
         if self.seco:
             print(f"  [seco] pauta [{pauta['angulo']}] {pauta['titulo_sug']}")
             if pauta.get("dado_proprio"):
                 print(f"         dado proprio: {pauta['dado_proprio']}")
-            return
-        self.cliente.table("pautas").insert(pauta).execute()
+            return None
+        r = self.cliente.table("pautas").insert(pauta).execute()
+        return r.data[0]["id"] if r.data else None
 
     # -- bases proprias ------------------------------------------------------
 
@@ -375,7 +378,8 @@ class Banco:
             por[h] = por.get(h, 0) + 1
         consulta = (self.cliente.table("pautas")
                     .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,"
-                            "pontuacao,horario_sugerido,itens(titulo,url,veiculo)")
+                            "pontuacao,horario_sugerido,tipo,topico_id,brief,evidencias,"
+                            "itens(titulo,url,veiculo)")
                     .eq("site", site).eq("status", "aprovada")
                     .gte("selecionada_em", inicio_dia_iso)
                     .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)))
@@ -397,6 +401,13 @@ class Banco:
              .lt("selecionada_em", inicio_dia_iso)
              .order("selecionada_em", desc=False).execute())
         return list(r.data or [])
+
+    def marca_pauta_status(self, pauta_id: int | None, status: str) -> None:
+        """Muda o status de uma pauta (ex.: 'descartada' quando o checador
+        reprova o artigo — ela nao volta a fila)."""
+        if self.seco or not self.cliente or not pauta_id:
+            return
+        self.cliente.table("pautas").update({"status": status}).eq("id", pauta_id).execute()
 
     def marca_pauta_publicada(self, pauta_id: int) -> None:
         """A pauta vira 'publicada' — some da fila de satelites e nao se
@@ -518,6 +529,57 @@ class Banco:
              .eq("site", site).eq("hub", hub).eq("status", "publicada")
              .order("criado_em", desc=True).limit(limite).execute())
         return list(r.data or [])
+
+    # -- ideias por categoria (sql/ideias-2026-10.sql) -----------------------
+
+    def grava_ideias(self, linhas: list[dict]) -> None:
+        """Upsert por (site, hub, chave): atualiza titulo/nota/detalhes e
+        PRESERVA status e marcacao (nao vao na carga)."""
+        if not linhas:
+            return
+        if self.seco or not self.cliente:
+            for l in linhas:
+                print(f"    [seco] ideia sugerida [{l['pontuacao']}] {l['titulo'][:70]}")
+            return
+        try:
+            self.cliente.table("ideias").upsert(linhas, on_conflict="site,hub,chave").execute()
+        except Exception as erro:
+            print(f"  aviso: ideias nao gravadas ({str(erro)[:120]}) — "
+                  f"aplique sql/ideias-2026-10.sql")
+
+    def ideias_marcadas(self, site: str, limite: int = 20) -> list[dict]:
+        """As ideias que a pessoa marcou e ainda nao viraram pauta, na ordem
+        em que foram marcadas."""
+        if self.seco or not self.cliente:
+            return []
+        try:
+            r = (self.cliente.table("ideias").select("*")
+                 .eq("site", site).eq("status", "marcada")
+                 .order("marcada_em", desc=False).limit(limite).execute())
+        except Exception as erro:
+            print(f"  aviso: nao li as ideias ({str(erro)[:120]})")
+            return []
+        return list(r.data or [])
+
+    def marca_ideia(self, ideia_id: int | None, status: str, pauta_id: int | None = None) -> None:
+        if self.seco or not self.cliente or not ideia_id:
+            return
+        campos: dict = {"status": status}
+        if pauta_id:
+            campos["pauta_id"] = pauta_id
+        from datetime import datetime, timezone
+        campos["atualizado_em"] = datetime.now(timezone.utc).isoformat()
+        self.cliente.table("ideias").update(campos).eq("id", ideia_id).execute()
+
+    def marca_ideia_da_pauta(self, pauta_id: int | None, status: str) -> None:
+        """Depois que a pauta e' publicada ou reprovada, a ideia de origem
+        acompanha (a tela mostra o status pela ideia)."""
+        if self.seco or not self.cliente or not pauta_id:
+            return
+        from datetime import datetime, timezone
+        (self.cliente.table("ideias")
+         .update({"status": status, "atualizado_em": datetime.now(timezone.utc).isoformat()})
+         .eq("pauta_id", pauta_id).execute())
 
     def execucao_hoje(self, fluxo: str, site: str, inicio_dia_iso: str) -> bool:
         """Ja' houve rodada deste fluxo hoje? Serve para avisar UMA vez por

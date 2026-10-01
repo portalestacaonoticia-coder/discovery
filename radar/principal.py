@@ -146,6 +146,20 @@ def main() -> int:
     for nome, cfg in sites.items():
         inicio = datetime.now(timezone.utc)
         llm.limpa_falhas()   # falha de API e' contada por site, no resumo
+        if cfg.get("motor") == "discover":
+            # Motor Discover (radar/motor.py): o site NAO passa mais pelo
+            # classificador/angulos fixos. Sinais -> topicos -> ideias que a
+            # pessoa marca na tela Radar -> brief -> pauta aprovada. O motor
+            # registra a propria execucao ('discover').
+            try:
+                motor.roda_site_discover(nome, cfg, banco, seco=args.seco)
+            except Exception as erro:
+                print(f"  motor discover de {nome} falhou: {erro}")
+                falhas += 1
+                banco.registra_execucao({
+                    "fluxo": "discover", "site": nome, "status": "erro",
+                    "resumo": str(erro)[:500], "inicio": inicio.isoformat()})
+            continue
         try:
             r = roda_site(nome, cfg, banco)
         except Exception as erro:
@@ -165,19 +179,6 @@ def main() -> int:
         except Exception as erro:
             print(f"  selecao de {nome} falhou: {erro}")
             selecionadas = 0
-        # Motor Discover (Etapa 1, modo sombra): o site com `motor: discover`
-        # roda o pipeline antigo acima E o motor novo, que por ora so' coleta
-        # sinais, agrupa em topicos e pontua (radar/motor.py). Falha do motor
-        # nao derruba a coleta; ele registra a propria execucao.
-        if cfg.get("motor") == "discover":
-            try:
-                motor.roda_site_discover(nome, cfg, banco, seco=args.seco)
-            except Exception as erro:
-                print(f"  motor discover de {nome} falhou: {erro}")
-                banco.registra_execucao({
-                    "fluxo": "discover", "site": nome, "status": "erro",
-                    "resumo": str(erro)[:500],
-                    "inicio": datetime.now(timezone.utc).isoformat()})
         banco.registra_execucao({
             "fluxo": "radar", "site": nome, "status": "ok",
             "resumo": f"{r['itens']} itens novos, {r['pautas']} pautas"

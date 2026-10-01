@@ -57,6 +57,8 @@ EXIGIDAS = [
      "relatorio da checagem de qualidade (Etapa 3)"),
     ("metas", "producao_inicio", "sql/discover-2026-10.sql",
      "plano de producao: de quando ate quando o site produz"),
+    ("ideias", "status", "sql/ideias-2026-10.sql",
+     "ideias por categoria: o motor sugere, a pessoa marca"),
 ]
 
 

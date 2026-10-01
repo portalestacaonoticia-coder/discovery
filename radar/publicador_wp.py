@@ -239,7 +239,10 @@ def publica(artigo: dict, wp: dict, site: dict | None = None,
     if site and not midia_id:
         from . import imagens
         consulta = imagens.consulta_do_hub(site, artigo.get("hub"))
-        achada = imagens.busca(consulta, evitar_imagens) if consulta else None
+        # Imagem ja' pronta (gerada por IA no radar/discover.py) tem
+        # prioridade; senao, busca no acervo pela consulta do hub.
+        achada = artigo.get("imagem_pronta") or (
+            imagens.busca(consulta, evitar_imagens) if consulta else None)
         if achada:
             enviada = envia_midia(base, cab, achada, artigo["titulo"])
             if enviada:
@@ -266,6 +269,10 @@ def publica(artigo: dict, wp: dict, site: dict | None = None,
     if midia_id:
         # E' daqui que saem o og:image e o card do Discover.
         corpo["featured_media"] = midia_id
+    if wp.get("autor_id"):
+        # Autor real visivel (E-E-A-T). So' funciona se o usuario da senha de
+        # aplicativo puder atribuir autor (Editor+); senao o WP ignora.
+        corpo["author"] = int(wp["autor_id"])
 
     if artigo.get("hub") and wp.get("categoria_por_hub", True):
         # As categorias escolhidas na aba Discovery; sem escolha, a categoria

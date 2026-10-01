@@ -83,6 +83,12 @@ def reaproveita(existente: dict | None) -> dict | None:
     atualizar o mesmo post, nunca reescrever."""
     if not existente:
         return None
+    # Reprovado pelo checador nao volta: a pauta ja' saiu da fila.
+    if existente.get("status") == "reprovada":
+        return None
+    checagem = existente.get("checagem")
+    if isinstance(checagem, dict) and not checagem.get("aprovado"):
+        return None
     corpo = (existente.get("corpo_md") or "").strip()
     titulo = (existente.get("titulo") or "").strip()
     if not titulo or len(corpo) < 1200:
@@ -148,6 +154,40 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
             falhas += 1
             continue
 
+        # Motor Discover: pauta com brief passa pelo checador (unico portao)
+        # e pelo otimizador antes do WP. Reprovada vira artigo 'reprovada' e
+        # a ideia de origem acompanha; a pauta sai da fila.
+        checagem_resultado = None
+        if pt.get("brief") and not reaproveitado:
+            from . import checagem as mod_checagem, discover
+            from .gerador_artigo import _hub_de, corrige
+            hub_cfg = _hub_de(site, pt.get("hub"))
+            ev = pt.get("evidencias") or {}
+            checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg)
+            if not checagem_resultado["aprovado"] and checagem_resultado["corrigivel"]:
+                print(f"  [checagem] corrigindo: {checagem_resultado['motivo'][:120]}")
+                corrigido = corrige(art, checagem_resultado["estrutural"], pt["brief"], ev, site, hub_cfg)
+                if corrigido:
+                    art = corrigido
+                    checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg)
+            print(f"  [checagem] {checagem_resultado['motivo'][:160]}")
+            if not checagem_resultado["aprovado"]:
+                (SAIDA / f"{nome}-{ref}-reprovado.md").write_text(art["markdown"], encoding="utf-8")
+                falhas += 1
+                if not args.seco:
+                    banco.grava_artigo({
+                        "site": nome, "tipo": "guia", "hub": pt.get("hub"),
+                        "titulo": art["titulo"], "resumo": art["resumo"],
+                        "corpo_md": art["markdown"], "jsonld": art["jsonld"],
+                        "status": "reprovada", "referencia": ref,
+                        "motivo_portao": checagem_resultado["motivo"][:300],
+                        "checagem": {k: v for k, v in checagem_resultado.items() if k != "corrigivel"},
+                    })
+                    banco.marca_pauta_status(pt["id"], "descartada")
+                    banco.marca_ideia_da_pauta(pt["id"], "reprovada")
+                continue
+            art = discover.otimiza(art, pt["brief"], site, hub_cfg)
+
         (SAIDA / f"{nome}-{ref}.md").write_text(art["markdown"], encoding="utf-8")
 
         if args.seco:
@@ -161,16 +201,20 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
         # aconteceu no primeiro ensaio de 18/09, com os 401 de credencial.
         status = "aprovada" if pode_publicar else "rascunho"
         if not reaproveitado:
-            banco.grava_artigo({
+            registro = {
                 "site": nome, "tipo": "guia", "hub": pt.get("hub"),
                 "titulo": art["titulo"], "resumo": art["resumo"],
                 "corpo_md": art["markdown"], "jsonld": art["jsonld"],
                 "status": status,
-                "motivo_portao": f"guia da pauta {pt['id']}"
-                                 + (f" ({art['citacoes']} fonte(s) citada(s))"
-                                    if art.get("citacoes") is not None else ""),
+                "motivo_portao": (checagem_resultado["motivo"][:300] if checagem_resultado
+                                  else f"guia da pauta {pt['id']}"
+                                  + (f" ({art['citacoes']} fonte(s) citada(s))"
+                                     if art.get("citacoes") is not None else "")),
                 "referencia": ref,
-            })
+            }
+            if checagem_resultado:
+                registro["checagem"] = {k: v for k, v in checagem_resultado.items() if k != "corrigivel"}
+            banco.grava_artigo(registro)
         print(f"  [{status}] {art['titulo']}"
               + (f" — {art['citacoes']} fonte(s) citada(s)"
                  if art.get("citacoes") else ""))
@@ -191,6 +235,7 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
                 "hub": pt.get("hub"),
                 "wp_post_id": (existente or {}).get("wp_post_id"),
                 "wp_media_id": (existente or {}).get("wp_media_id"),
+                "imagem_pronta": art.get("imagem_pronta"),
             }, {**wp,
                 "usuario": os.environ[wp["usuario_env"]],
                 "senha_app": os.environ[wp["senha_env"]]}, site,
@@ -206,6 +251,8 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
             # So' some da fila quando de fato foi para o WP — mesmo como
             # rascunho, porque o texto ja' existe e nao se reescreve.
             banco.marca_pauta_publicada(pt["id"])
+            if pt.get("brief"):
+                banco.marca_ideia_da_pauta(pt["id"], "publicada")
             publicados += 1
             print(f"  no ar: {resultado.get('link')}")
         except KeyError as erro:
