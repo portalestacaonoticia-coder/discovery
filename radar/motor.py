@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from . import sinais as mod_sinais
 from .alerta import avisa
 from .banco import Banco
-from .config import carrega_sites
+from .config import carrega_sites, env
 from .oportunidade import (avisos_de_producao, componentes, criterios_discover,
                            em_producao, pontua_topico, seleciona_topicos)
 from .selecao import FUSO_SP, inicio_do_dia_sp
@@ -45,7 +45,17 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
     inicio = agora
     mod_sinais.limpa_falhas()
 
-    meta = banco.meta_do_site(nome) or {}
+    # No ensaio (--seco) nada e' gravado, mas a LEITURA e' real quando ha'
+    # banco: metas (periodo de producao), historico de sinais/topicos e TTL
+    # das fontes. Mesmo padrao do publicar.py. Sem SUPABASE_* no ambiente,
+    # cai no banco seco (tudo em memoria). Atencao: em --seco a coleta nao
+    # e' registrada, entao rodar o ensaio varias vezes repete a SerpAPI.
+    leitor = banco
+    if seco and env("SUPABASE_URL") and env("SUPABASE_SERVICE_KEY"):
+        leitor = Banco(seco=False)
+        print("  (ensaio: lendo o banco de verdade, sem gravar)")
+
+    meta = leitor.meta_do_site(nome) or {}
     criterios = criterios_discover(meta.get("criterios"))
     produzindo, motivo_prod = em_producao(meta, hoje_sp)
     print(f"\n=== {nome} · motor discover ({motivo_prod}) ===")
@@ -59,13 +69,20 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
     melhores: list[dict] = []
     for hub in site.get("hubs", []) or []:
         print(f"  [{hub['id']}]")
-        novos = mod_sinais.coleta_sinais(nome, site, hub, banco, agora, pagas=produzindo)
+        novos = mod_sinais.coleta_sinais(nome, site, hub, banco, agora,
+                                         pagas=produzindo, leitor=leitor)
         total_sinais += len(novos)
 
-        recentes = banco.sinais_recentes(nome, hub["id"], dias=30)
+        recentes = leitor.sinais_recentes(nome, hub["id"], dias=30)
+        if leitor is not banco:
+            # ensaio: junta o historico do banco com o que acabou de coletar
+            # (so' na memoria), sem contar o mesmo sinal duas vezes
+            vistos = {(s["fonte"], s["dia"], s["hash_dedup"]) for s in recentes}
+            recentes = recentes + [s for s in banco.sinais_recentes(nome, hub["id"])
+                                   if (s["fonte"], s["dia"], s["hash_dedup"]) not in vistos]
         topicos = agrupa_topicos(recentes, hub, agora)
-        funde_com_historico(topicos, banco.topicos_recentes(nome, hub["id"], dias=7))
-        historico = banco.artigos_publicados_do_hub(nome, hub["id"])
+        funde_com_historico(topicos, leitor.topicos_recentes(nome, hub["id"], dias=7))
+        historico = leitor.artigos_publicados_do_hub(nome, hub["id"])
         for t in topicos:
             comp = componentes(t, hub, site, historico, agora)
             t["componentes"] = comp

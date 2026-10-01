@@ -38,11 +38,14 @@ jobs:
 
       # Ensaio do motor Discover: coleta sinais DE VERDADE (RSS gratis; SERP
       # e Trends so' se SERPAPI_KEY existir e o site estiver em producao),
-      # agrupa, pontua e imprime. Nao grava nada.
+      # agrupa, pontua e imprime. Le o banco (periodo, historico, TTL) mas
+      # nao grava nada.
       - name: ensaio do motor discover
         run: python -m radar.motor --seco
         continue-on-error: true
         env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
