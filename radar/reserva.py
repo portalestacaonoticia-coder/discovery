@@ -217,12 +217,14 @@ def main() -> int:
             "wp_media_id": (existente or {}).get("wp_media_id"),
         }, {**wp,
             "usuario": os.environ[wp["usuario_env"]],
-            "senha_app": os.environ[wp["senha_env"]]}, site)
+            "senha_app": os.environ[wp["senha_env"]]}, site,
+            evitar_imagens=banco.imagens_usadas(SITE))
         banco.marca_publicado(SITE, "reserva", ref, resultado["id"],
                               resultado.get("link"), "publicada",
                               resultado.get("midia_id"),
                               resultado.get("imagem_url"),
-                              resultado.get("imagem_credito"))
+                              resultado.get("imagem_credito"),
+                              imagem_origem=resultado.get("imagem_origem"))
         banco.registra_execucao({"fluxo": "reserva", "site": SITE, "status": "ok",
                                  "resumo": f"piso agiu: reserva no ar ({resultado.get('link')})",
                                  "inicio": datetime.now(timezone.utc).isoformat()})

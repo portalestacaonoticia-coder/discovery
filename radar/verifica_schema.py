@@ -33,6 +33,8 @@ EXIGIDAS = [
      "URL da imagem destacada (vira og:image)"),
     ("artigos", "imagem_credito", "sql/imagem-destacada-2026-09.sql",
      "credito do acervo; obrigatorio nas imagens CC"),
+    ("artigos", "imagem_origem", "sql/imagem-origem-2026-10.sql",
+     "foto do acervo usada na capa; sem ela a busca repete a mesma capa"),
     ("metas", "criterios", "sql/schema.sql",
      "pesos da selecao automatica"),
     ("pautas", "horario_sugerido", "sql/schema.sql",
