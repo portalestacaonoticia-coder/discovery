@@ -399,10 +399,14 @@ def _venceu(ultima_iso: str | None, fonte: str, agora: datetime) -> bool:
 
 
 def coleta_sinais(nome: str, site: dict, hub: dict, banco, agora: datetime,
-                  pagas: bool = True) -> list[dict]:
+                  pagas: bool = True, leitor=None) -> list[dict]:
     """Coleta as fontes do hub cujo TTL venceu, grava e devolve os sinais
     novos. `pagas=False` (site fora do periodo de producao) pula SerpAPI,
-    Trends, Reddit e YouTube — so' o RSS gratis roda."""
+    Trends, Reddit e YouTube — so' o RSS gratis roda.
+
+    `leitor` e' quem responde o TTL e o teto (no ensaio --seco e' um cliente
+    real so' de leitura; as gravacoes vao para `banco`, que nao grava)."""
+    leitor = leitor or banco
     cfg_site = site.get("sinais") or {}
     geo = str(cfg_site.get("geo") or "BR")
     hl = str(cfg_site.get("hl") or "pt-BR")
@@ -433,13 +437,13 @@ def coleta_sinais(nome: str, site: dict, hub: dict, banco, agora: datetime,
     for fonte, consulta, coletor in planos:
         if fonte != "google_news_rss" and not pagas:
             continue
-        if not _venceu(banco.ultima_coleta(nome, hub_id, fonte, consulta), fonte, agora):
+        if not _venceu(leitor.ultima_coleta(nome, hub_id, fonte, consulta), fonte, agora):
             continue
         if fonte in PAGAS:
             if not tem_serpapi():
                 _registra_falha("sem SERPAPI_KEY: SERP e Trends desligados")
                 continue
-            if banco.coletas_hoje(fonte, inicio_dia) >= teto:
+            if leitor.coletas_hoje(fonte, inicio_dia) >= teto:
                 _registra_falha(f"teto diario da SerpAPI ({teto}) atingido")
                 continue
         try:
