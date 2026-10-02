@@ -67,6 +67,9 @@ sites:
     entidade: "Doll — Dolar e Cambio"      # o dominio nao diz 'dolar': a entidade precisa dizer
     idioma: pt-BR
     fuso: America/Sao_Paulo
+    # Motor Discover (radar/motor.py): as pautas sao escolhidas na tela Radar
+    # (categorias + temas -> IA identifica -> voce marca e autoriza ate uma data).
+    motor: discover
 
     hubs:
       # 'imagem' = termo de busca no banco de imagens (radar/imagens.py).
@@ -77,21 +80,25 @@ sites:
         url: /cotacao-do-dolar
         termos: [dolar, dólar, cotacao, cotação, ptax, cambio, câmbio, moeda]
         imagem: "us dollar bills currency"
+        categorias: ["Cotação"]
       - id: politica-monetaria
         titulo: "Como Fed e Copom mexem no dolar"
         url: /fed-copom-dolar
         termos: [fed, fomc, copom, juros, selic, ata, powell, banco central]
         imagem: "central bank building finance"
+        categorias: ["Política Monetária"]
       - id: viagem
         titulo: "Dolar para viagem: turismo, cartao e IOF"
         url: /dolar-viagem
         termos: [viagem, turismo, iof, cartao, cartão, remessa, exterior, casa de cambio]
         imagem: "travel passport money airport"
+        categorias: ["Viagem e IOF"]
       - id: indicadores
         titulo: "Indicadores que movem o dolar"
         url: /indicadores
         termos: [ipca, cpi, payroll, pib, inflacao, inflação, focus, balanca, balança]
         imagem: "financial charts economic data"
+        categorias: ["Indicadores"]
 
     # Aliquotas usadas nas tabelas de conversao. CONFERIR na Receita/decreto antes
     # de publicar: IOF muda por decreto e o numero errado sai em toda materia.
@@ -258,6 +265,9 @@ sites:
     entidade: "Diva da Beleza — Beleza, Cabelos e Skincare"
     idioma: pt-BR
     fuso: America/Sao_Paulo
+    # Motor Discover (radar/motor.py): as pautas sao escolhidas na tela Radar
+    # (categorias + temas -> IA identifica -> voce marca e autoriza ate uma data).
+    motor: discover
 
     hubs:
       - id: cabelos
@@ -310,6 +320,9 @@ sites:
     entidade: "Cineart Café — Cinema, Filmes e Séries"
     idioma: pt-BR
     fuso: America/Sao_Paulo
+    # Motor Discover (radar/motor.py): as pautas sao escolhidas na tela Radar
+    # (categorias + temas -> IA identifica -> voce marca e autoriza ate uma data).
+    motor: discover
 
     hubs:
       # Nada de buscar por nome de ator: a foto de acervo ilustra o TEMA
@@ -359,6 +372,9 @@ sites:
     entidade: "Pescaria.co — Pesca Esportiva e Amadora"
     idioma: pt-BR
     fuso: America/Sao_Paulo
+    # Motor Discover (radar/motor.py): as pautas sao escolhidas na tela Radar
+    # (categorias + temas -> IA identifica -> voce marca e autoriza ate uma data).
+    motor: discover
 
     hubs:
       - id: tecnicas-equipamentos
@@ -411,6 +427,9 @@ sites:
     entidade: "Guia do Motorista — CNH, Trânsito e Automóveis"
     idioma: pt-BR
     fuso: America/Sao_Paulo
+    # Motor Discover (radar/motor.py): as pautas sao escolhidas na tela Radar
+    # (categorias + temas -> IA identifica -> voce marca e autoriza ate uma data).
+    motor: discover
 
     hubs:
       - id: cnh

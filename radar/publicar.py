@@ -45,9 +45,12 @@ def inicio_do_dia_sp() -> str:
 
 
 def sites_do_fluxo(todos: dict) -> dict:
-    """Site com WordPress configurado e sem base propria."""
+    """Site com WordPress configurado e sem base propria — ou qualquer site
+    com WordPress no motor Discover (as pautas escolhidas na tela viram guia
+    por esta esteira; o doll continua com PTAX diaria, ancoras e reserva
+    pelas esteiras dedicadas)."""
     return {nome: cfg for nome, cfg in todos.items()
-            if cfg.get("wordpress") and not cfg.get("base")}
+            if cfg.get("wordpress") and (not cfg.get("base") or cfg.get("motor") == "discover")}
 
 
 def maduras(candidatas: list[dict], por_hub: dict, teto: int) -> tuple[list[dict], int]:
@@ -109,6 +112,12 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
 
     candidatas, por_hub = leitor.pautas_para_satelite(
         nome, inicio_do_dia_sp(), exige_dado=False)
+    if site.get("motor") == "discover":
+        # Motor Discover: so' sai o que a pessoa escolheu na tela (pauta com
+        # brief, vinda de ideia marcada). Pauta antiga do radar ou do
+        # calendario nao passa — e no doll as pautas de satelite seguem
+        # pela esteira dele (satelites.py), sem cair aqui em dobro.
+        candidatas = [p for p in candidatas if p.get("brief")]
     pautas, em_espera = maduras(candidatas, por_hub, teto)
 
     if not pautas:
