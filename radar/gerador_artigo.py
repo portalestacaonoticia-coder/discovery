@@ -325,7 +325,7 @@ def monta(pauta: dict, site: dict, leia_tambem: list[dict] | None = None) -> dic
     if not llm.tem_chave():
         return None
 
-    hub = _hub_de(site, pauta.get("hub"))
+    hub = pauta.get("_hub") or _hub_de(site, pauta.get("hub"))
     if pauta.get("brief"):
         return monta_do_brief(pauta["brief"], pauta.get("evidencias") or {}, site, hub)
     dominios = _busca(site, hub)

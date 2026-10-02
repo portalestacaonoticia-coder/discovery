@@ -21,6 +21,41 @@ from . import angulos_ia, brief as mod_brief, pesquisa as mod_pesquisa
 SUGESTOES_POR_HUB = 6
 
 
+def _chave(texto: str) -> str:
+    import re
+    from .normaliza import sem_acento
+    return re.sub(r"[^a-z0-9]+", "", sem_acento((texto or "").lower()))
+
+
+def resolve_hub(site: dict, hub_id: str, pesquisa: dict | None = None) -> dict:
+    """O hub de trabalho de uma ideia. Desde 02/10/2026 a tela escolhe as
+    CATEGORIAS DO WORDPRESS (o id e' o slug, ex. 'viagem-e-iof'), nao os
+    hubs internos do sites.yaml. Para escrever bem, aproveita o hub do yaml
+    que corresponde (mesmo id, ou categoria mapeada com o mesmo nome) —
+    termos, perfil do leitor, fontes oficiais, imagem — mas o id e o titulo
+    passam a ser os da categoria, para o post cair exatamente nela."""
+    nome = ((pesquisa or {}).get("categorias") or {}).get(hub_id) or ""
+    hubs = site.get("hubs", []) or []
+    for h in hubs:
+        if h.get("id") == hub_id:
+            return h if not nome else {**h, "titulo": nome, "categorias": h.get("categorias") or [nome]}
+    alvo_nome, alvo_slug = _chave(nome), _chave(hub_id)
+    for h in hubs:
+        mapeadas = {_chave(c) for c in (h.get("categorias") or [])}
+        if (alvo_nome and alvo_nome in mapeadas) or alvo_slug in mapeadas or _chave(h.get("id", "")) == alvo_slug:
+            return {**h, "id": hub_id, "titulo": nome or h.get("titulo"), "categorias": [nome] if nome else h.get("categorias")}
+    return {"id": hub_id, "titulo": nome or hub_id, "categorias": [nome] if nome else []}
+
+
+def hubs_de_trabalho(site: dict, pesquisa: dict | None = None) -> list[dict]:
+    """Os hubs em que o motor trabalha: as categorias ativas na tela, ou —
+    se a tela nunca foi salva — os hubs do sites.yaml."""
+    ativos = (pesquisa or {}).get("hubs_ativos") or []
+    if not ativos:
+        return list(site.get("hubs", []) or [])
+    return [resolve_hub(site, h, pesquisa) for h in ativos]
+
+
 def chave_manual(titulo: str) -> str:
     from .normaliza import normaliza_titulo
     return "manual:" + hashlib.sha1(normaliza_titulo(titulo).encode()).hexdigest()[:20]

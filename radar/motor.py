@@ -77,9 +77,9 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
     if hubs_ativos:
         print(f"  categorias ativas: {', '.join(hubs_ativos)}")
 
-    for hub in site.get("hubs", []) or []:
-        if hubs_ativos and hub["id"] not in hubs_ativos:
-            continue
+    # Categorias do WordPress ativas na tela (resolvidas para hubs de
+    # trabalho); sem tela salva, os hubs do sites.yaml.
+    for hub in mod_ideias.hubs_de_trabalho(site, pesquisa):
         print(f"  [{hub['id']}]")
         temas = [t.strip() for t in str(temas_por_hub.get(hub["id"]) or "").split(",") if t.strip()]
         novos = mod_sinais.coleta_sinais(nome, site, hub, banco, agora,
@@ -144,14 +144,14 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
         inicio_dia = inicio_do_dia_sp()
         vagas = int(meta.get("pautas_por_dia") or 0) - leitor.selecionadas_hoje(nome, inicio_dia)
         print(f"  {len(marcadas)} ideia(s) marcada(s), {max(vagas, 0)} vaga(s) hoje")
-        hubs = {h["id"]: h for h in site.get("hubs", []) or []}
         for ideia in marcadas:
             if vagas <= 0:
                 break
-            hub = hubs.get(ideia.get("hub"))
-            if not hub:
-                print(f"    [ideia {ideia['id']}] hub {ideia.get('hub')} nao existe no sites.yaml")
+            if not ideia.get("hub"):
                 continue
+            # categoria do WordPress (slug) ou hub do yaml, ja' com o
+            # vocabulario do hub correspondente
+            hub = mod_ideias.resolve_hub(site, ideia["hub"], pesquisa)
             if seco:
                 print(f"    [seco] produziria: {ideia['titulo'][:70]}")
                 continue

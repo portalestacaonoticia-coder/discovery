@@ -142,8 +142,17 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
     SAIDA.mkdir(exist_ok=True)
     publicados = falhas = 0
 
+    # Pauta do motor Discover tem como hub a CATEGORIA DO WORDPRESS (slug);
+    # resolve uma vez por site o hub de trabalho (nome da categoria +
+    # vocabulario/fontes do hub do yaml correspondente).
+    from .ideias import resolve_hub
+    from .oportunidade import criterios_discover
+    pesquisa = criterios_discover(meta.get("criterios"))["pesquisa"]
+
     for pt in pautas:
         ref = f"guia-{pt['id']}"
+        if pt.get("brief"):
+            pt["_hub"] = resolve_hub(site, pt.get("hub") or "", pesquisa)
         # IDEMPOTENTE: o guia ja' escrito numa rodada anterior (e que nao
         # chegou ao WP — 401 de credencial, site fora do ar) e' reaproveitado
         # do banco. So' chama o modelo quando NAO ha' texto salvo. Antes de
@@ -169,8 +178,8 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
         checagem_resultado = None
         if pt.get("brief") and not reaproveitado:
             from . import checagem as mod_checagem, discover
-            from .gerador_artigo import _hub_de, corrige
-            hub_cfg = _hub_de(site, pt.get("hub"))
+            from .gerador_artigo import corrige
+            hub_cfg = pt.get("_hub") or {}
             ev = pt.get("evidencias") or {}
             checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg)
             if not checagem_resultado["aprovado"] and checagem_resultado["corrigivel"]:
