@@ -220,7 +220,7 @@ cp = criterios_discover({"discover": {"pesquisa": {"hubs_ativos": ["doces-sobrem
                                                    "temas": {"doces-sobremesas": "bolo de pote, brigadeiro gourmet"}}}})
 assert cp["pesquisa"]["hubs_ativos"] == ["doces-sobremesas"]
 assert cp["pesquisa"]["temas"]["doces-sobremesas"] == "bolo de pote, brigadeiro gourmet"
-assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre"}
+assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre", "categorias": {}}
 ct = consultas_do_hub(HUB, temas=["bolo de pote", "brigadeiro gourmet"])
 assert ct["serp"] == ["bolo de pote", "brigadeiro gourmet"] and ct["trends"] == ct["serp"]
 assert ct["noticias"] == ["bolo de pote OR brigadeiro gourmet"]
@@ -261,6 +261,26 @@ assert bl and not any(LISTA.search(h) for h in bl["headline_options"])
 angs_l = [{"id": "l", "tipo": "lista", "titulo_trabalho": "7 receitas", "afinidade": 1, "lacuna": 1, "risco_factual": "baixo", "canibaliza": False},
           {"id": "u", "tipo": "servico", "titulo_trabalho": "Bolo de caneca", "afinidade": 0.4, "lacuna": 0.4, "risco_factual": "baixo", "canibaliza": False}]
 assert escolhe_angulo(angs_l, {})["id"] == "l" and escolhe_angulo(angs_l, {}, "individual")["id"] == "u"
+# categorias do WordPress como hubs de trabalho (doll: 5 categorias reais)
+from radar.ideias import hubs_de_trabalho, resolve_hub
+DOLL = {"hubs": [
+    {"id": "cotacao", "titulo": "Cotacao do dolar hoje", "termos": ["dolar", "ptax"], "categorias": ["Cotação"]},
+    {"id": "politica-monetaria", "titulo": "Como Fed e Copom mexem no dolar", "termos": ["fed", "copom"], "categorias": ["Política Monetária"]},
+    {"id": "viagem", "titulo": "Dolar para viagem", "termos": ["iof"], "categorias": ["Viagem e IOF"]},
+    {"id": "indicadores", "titulo": "Indicadores", "termos": ["ipca"], "categorias": ["Indicadores"]}]}
+PESQ = {"hubs_ativos": ["cotacao", "viagem-e-iof", "fed-e-copom"],
+        "categorias": {"cotacao": "Cotação", "fed-e-copom": "Fed e Copom", "indicadores": "Indicadores",
+                       "politica-monetaria": "Política Monetária", "viagem-e-iof": "Viagem e IOF"}}
+hv = resolve_hub(DOLL, "viagem-e-iof", PESQ)          # slug do WP, hub do yaml por nome mapeado
+assert hv["id"] == "viagem-e-iof" and hv["titulo"] == "Viagem e IOF" and hv["termos"] == ["iof"]
+hc = resolve_hub(DOLL, "cotacao", PESQ)
+assert hc["titulo"] == "Cotação" and hc["termos"] == ["dolar", "ptax"]
+hf = resolve_hub(DOLL, "fed-e-copom", PESQ)            # categoria sem hub no yaml: hub virtual
+assert hf == {"id": "fed-e-copom", "titulo": "Fed e Copom", "categorias": ["Fed e Copom"]}
+assert [h["id"] for h in hubs_de_trabalho(DOLL, PESQ)] == ["cotacao", "viagem-e-iof", "fed-e-copom"]
+assert [h["id"] for h in hubs_de_trabalho(DOLL, {})] == ["cotacao", "politica-monetaria", "viagem", "indicadores"]
+assert criterios_discover({"discover": {"pesquisa": PESQ}})["pesquisa"]["categorias"]["viagem-e-iof"] == "Viagem e IOF"
+
 cl = criterios_discover({"discover": {"pesquisa": {"linha_editorial": "só receitas individuais", "formato": "individual"}}})
 assert cl["pesquisa"]["formato"] == "individual" and cl["pesquisa"]["linha_editorial"] == "só receitas individuais"
 

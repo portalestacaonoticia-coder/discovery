@@ -50,7 +50,8 @@ def criterios_discover(criterios: dict | None) -> dict:
     # Pesquisa de pautas da tela Radar: categorias ativas e temas macro por
     # hub. Hub fora de hubs_ativos nao coleta sinal nem recebe sugestao;
     # temas viram as consultas de sinal do hub.
-    c["pesquisa"] = {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre"}
+    c["pesquisa"] = {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre",
+                     "categorias": {}}
     d = (criterios or {}).get("discover") if isinstance(criterios, dict) else None
     if isinstance(d, dict):
         for chave in ("minimo", "topicos_por_ciclo", "satelites_por_hub"):
@@ -69,6 +70,10 @@ def criterios_discover(criterios: dict | None) -> dict:
             # ao brief e ao redator.
             c["pesquisa"]["linha_editorial"] = str(p.get("linha_editorial") or "").strip()[:1000]
             c["pesquisa"]["formato"] = "individual" if p.get("formato") == "individual" else "livre"
+            # Categorias do WordPress (slug -> nome) escolhidas na tela: sao
+            # elas os "hubs" das ideias. Ver ideias.resolve_hub.
+            c["pesquisa"]["categorias"] = {str(s): str(n) for s, n in (p.get("categorias") or {}).items()
+                                           if s and isinstance(n, str) and n.strip()}
     # o teto por hub tambem pode vir do criterio antigo (mesma tela)
     if isinstance(criterios, dict) and isinstance(criterios.get("satelites_por_hub"), (int, float)) \
             and not (isinstance(d, dict) and "satelites_por_hub" in d):
