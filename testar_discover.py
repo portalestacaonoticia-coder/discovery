@@ -220,7 +220,7 @@ cp = criterios_discover({"discover": {"pesquisa": {"hubs_ativos": ["doces-sobrem
                                                    "temas": {"doces-sobremesas": "bolo de pote, brigadeiro gourmet"}}}})
 assert cp["pesquisa"]["hubs_ativos"] == ["doces-sobremesas"]
 assert cp["pesquisa"]["temas"]["doces-sobremesas"] == "bolo de pote, brigadeiro gourmet"
-assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}}
+assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre"}
 ct = consultas_do_hub(HUB, temas=["bolo de pote", "brigadeiro gourmet"])
 assert ct["serp"] == ["bolo de pote", "brigadeiro gourmet"] and ct["trends"] == ct["serp"]
 assert ct["noticias"] == ["bolo de pote OR brigadeiro gourmet"]
@@ -242,5 +242,26 @@ assert acha_categoria(DOLL_WP, "Viagem e IOF") == 7
 assert acha_categoria(DOLL_WP, "viagem") is None            # nao existe: nao cria, nao chuta
 assert acha_categoria(DOLL_WP, "receitas-rapidas") is None
 assert acha_categoria(DOLL_WP, "") is None
+
+# linha editorial "um assunto por pauta": listas barradas (titulos reais da tela)
+from radar.brief import LISTA, regras_editoriais
+for lista in ("5 receitas rápidas na air fryer para o jantar em até 30 minutos",
+              "10 receitas de almoço rápido para fazer em até 15 minutos",
+              "O que fazer no micro-ondas além de pipoca: 7 receitas fáceis",
+              "Sete ideias de lanche para a escola"):
+    assert LISTA.search(lista), lista
+for unica in ("Receita de frango na air fryer com poucos ingredientes e sem ressecar",
+              "Bolo de caneca no micro-ondas: receita fácil pronta em poucos minutos",
+              "Frango à passarinho na air fryer crocante por fora"):
+    assert not LISTA.search(unica), unica
+assert "PROIBIDO lista" in regras_editoriais("", "individual")
+assert "tom caseiro" in regras_editoriais("tom caseiro", "livre") and regras_editoriais("", "livre") == ""
+bl, _ = valida_brief({**bruto, "headline_options": ["5 receitas de bolo de airfryer em 20 minutos"] + bruto["headline_options"]}, ev, "individual")
+assert bl and not any(LISTA.search(h) for h in bl["headline_options"])
+angs_l = [{"id": "l", "tipo": "lista", "titulo_trabalho": "7 receitas", "afinidade": 1, "lacuna": 1, "risco_factual": "baixo", "canibaliza": False},
+          {"id": "u", "tipo": "servico", "titulo_trabalho": "Bolo de caneca", "afinidade": 0.4, "lacuna": 0.4, "risco_factual": "baixo", "canibaliza": False}]
+assert escolhe_angulo(angs_l, {})["id"] == "l" and escolhe_angulo(angs_l, {}, "individual")["id"] == "u"
+cl = criterios_discover({"discover": {"pesquisa": {"linha_editorial": "só receitas individuais", "formato": "individual"}}})
+assert cl["pesquisa"]["formato"] == "individual" and cl["pesquisa"]["linha_editorial"] == "só receitas individuais"
 
 print("ok: motor discover — agrupamento, DiscoverScore, plano de producao, angulo, brief, checagem e otimizador")

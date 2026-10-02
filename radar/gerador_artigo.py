@@ -219,7 +219,9 @@ def _le_json_artigo(saida: str | None) -> tuple[str, str, str] | None:
 
 # -- motor Discover: escrita a partir do BRIEF -------------------------------
 
-def _sistema_brief(site: dict, hub: dict) -> str:
+def _sistema_brief(site: dict, hub: dict, brief: dict | None = None) -> str:
+    from .brief import regras_editoriais
+    linha = (brief or {}).get("linha_editorial") or {}
     return (
         f"Voce e' redator do {site.get('entidade') or site['dominio']}, um site "
         f"brasileiro. A secao e': {hub.get('titulo') or 'geral'}. Leitor: "
@@ -237,6 +239,7 @@ def _sistema_brief(site: dict, hub: dict) -> str:
         "sentido. NAO escreva secao de fontes/referencias (o site monta).\n"
         f"- Portugues do Brasil, tom direto e pratico, {PALAVRAS} palavras. "
         "Use lista quando for mesmo lista.\n"
+        + regras_editoriais(linha.get("texto"), linha.get("formato")) +
         "Responda SO um JSON valido: {\"titulo\": \"...\", \"resumo\": \"...\", "
         "\"corpo_md\": \"...\"} — titulo = a discover_headline do brief, resumo = "
         "o dek, corpo em markdown SEM repetir o titulo como H1.")
@@ -274,7 +277,7 @@ def monta_do_brief(brief: dict, evidencias: dict, site: dict, hub: dict) -> dict
     pesquisa ja' foi feita. Devolve o mesmo formato de `monta`."""
     if not llm.tem_chave():
         return None
-    saida = llm.gera(_prompt_brief(brief, evidencias), sistema=_sistema_brief(site, hub),
+    saida = llm.gera(_prompt_brief(brief, evidencias), sistema=_sistema_brief(site, hub, brief),
                      max_tokens=5000)
     lido = _le_json_artigo(saida)
     if not lido:
@@ -301,7 +304,7 @@ def corrige(artigo: dict, problemas: list[str], brief: dict, evidencias: dict,
               "esteja em KEY_FACTS; se o problema e' um numero sem fato, REMOVA o numero.\n"
               "PROBLEMAS:\n- " + "\n- ".join(problemas)
               + "\n\nARTIGO ATUAL:\n" + corpo_atual[:14000])
-    saida = llm.gera(prompt, sistema=_sistema_brief(site, hub), max_tokens=5000)
+    saida = llm.gera(prompt, sistema=_sistema_brief(site, hub, brief), max_tokens=5000)
     lido = _le_json_artigo(saida)
     if not lido:
         return None

@@ -15,6 +15,7 @@ import json
 import re
 
 from . import llm
+from .brief import LISTA, regras_editoriais
 
 TIPOS = ("servico", "explicador", "comparacao", "lista", "passo_a_passo", "analise")
 RISCOS = ("baixo", "medio", "alto")
@@ -30,7 +31,8 @@ def _sistema(site: dict, hub: dict) -> str:
         "entrega o que a manchete promete e nao repete o que o site ja' "
         "publicou. Sem caca-clique, sem pessoa real nomeada, sem promessa que "
         "o texto nao cumpra.\n"
-        f"Tipos permitidos: {', '.join(TIPOS)}.\n"
+        + regras_editoriais(site.get("_linha_editorial"), site.get("_formato")) +
+        f"Tipos permitidos: {', '.join(t for t in TIPOS if not (t == 'lista' and site.get('_formato') == 'individual'))}.\n"
         "Responda SO um JSON: {\"angulos\": [{\"id\": \"a1\", \"tipo\": \"servico\", "
         "\"titulo_trabalho\": \"...\", \"promessa\": \"o que o leitor leva\", "
         "\"por_que_agora\": \"...\", \"perguntas_respondidas\": [\"...\"], "
@@ -110,15 +112,18 @@ def propoe_angulos(ideia: dict, site: dict, hub: dict,
     return angulos[:5] or None
 
 
-def escolhe_angulo(angulos: list[dict], hub: dict) -> dict | None:
+def escolhe_angulo(angulos: list[dict], hub: dict, formato: str | None = None) -> dict | None:
     """Deterministico: 0.4 afinidade + 0.4 lacuna + 0.2 (1 - risco). Descarta
-    o que canibaliza e, em hub SEM fontes oficiais, o de risco alto (nao ha'
-    onde checar o numero)."""
+    o que canibaliza, em hub SEM fontes oficiais o de risco alto (nao ha'
+    onde checar o numero), e — no formato "individual" — qualquer lista."""
     risco_n = {"baixo": 0.0, "medio": 0.5, "alto": 1.0}
     tem_fontes = bool(hub.get("fontes"))
     melhor, nota_melhor = None, -1.0
     for a in angulos or []:
         if a.get("canibaliza"):
+            continue
+        if formato == "individual" and (a.get("tipo") == "lista"
+                                        or LISTA.search(a.get("titulo_trabalho") or "")):
             continue
         if a.get("risco_factual") == "alto" and not tem_fontes:
             continue
