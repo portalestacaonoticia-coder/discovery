@@ -226,4 +226,21 @@ assert ct["serp"] == ["bolo de pote", "brigadeiro gourmet"] and ct["trends"] == 
 assert ct["noticias"] == ["bolo de pote OR brigadeiro gourmet"]
 assert consultas_do_hub(HUB, temas=[]) == consultas_do_hub(HUB)
 
+# categoria do WordPress: so' acha o que existe (nome OU slug), nunca inventa
+from radar.publicador_wp import acha_categoria
+DOLL_WP = [{"id": 2, "name": "Cotação", "slug": "cotacao"},
+           {"id": 3, "name": "Fed e Copom", "slug": "fed-e-copom"},
+           {"id": 4, "name": "Indicadores", "slug": "indicadores"},
+           {"id": 5, "name": "Política Monetária", "slug": "politica-monetaria"},
+           {"id": 1, "name": "Uncategorized", "slug": "uncategorized"},
+           {"id": 7, "name": "Viagem e IOF", "slug": "viagem-e-iof"}]
+assert acha_categoria(DOLL_WP, "Cotação") == 2
+assert acha_categoria(DOLL_WP, "cotacao") == 2              # id do hub bate no slug
+assert acha_categoria(DOLL_WP, "politica-monetaria") == 5
+assert acha_categoria(DOLL_WP, "POLITICA MONETARIA") == 5
+assert acha_categoria(DOLL_WP, "Viagem e IOF") == 7
+assert acha_categoria(DOLL_WP, "viagem") is None            # nao existe: nao cria, nao chuta
+assert acha_categoria(DOLL_WP, "receitas-rapidas") is None
+assert acha_categoria(DOLL_WP, "") is None
+
 print("ok: motor discover — agrupamento, DiscoverScore, plano de producao, angulo, brief, checagem e otimizador")
