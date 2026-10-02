@@ -47,6 +47,10 @@ def criterios_discover(criterios: dict | None) -> dict:
          "minimo": PADRAO_DISCOVER["minimo"],
          "topicos_por_ciclo": PADRAO_DISCOVER["topicos_por_ciclo"],
          "satelites_por_hub": PADRAO_DISCOVER["satelites_por_hub"]}
+    # Pesquisa de pautas da tela Radar: categorias ativas e temas macro por
+    # hub. Hub fora de hubs_ativos nao coleta sinal nem recebe sugestao;
+    # temas viram as consultas de sinal do hub.
+    c["pesquisa"] = {"hubs_ativos": [], "temas": {}}
     d = (criterios or {}).get("discover") if isinstance(criterios, dict) else None
     if isinstance(d, dict):
         for chave in ("minimo", "topicos_por_ciclo", "satelites_por_hub"):
@@ -55,6 +59,11 @@ def criterios_discover(criterios: dict | None) -> dict:
         for nome, peso in (d.get("pesos") or {}).items():
             if nome in c["pesos"] and isinstance(peso, (int, float)):
                 c["pesos"][nome] = peso
+        p = d.get("pesquisa")
+        if isinstance(p, dict):
+            c["pesquisa"]["hubs_ativos"] = [str(h) for h in (p.get("hubs_ativos") or []) if h]
+            c["pesquisa"]["temas"] = {str(h): str(t) for h, t in (p.get("temas") or {}).items()
+                                      if isinstance(t, str) and t.strip()}
     # o teto por hub tambem pode vir do criterio antigo (mesma tela)
     if isinstance(criterios, dict) and isinstance(criterios.get("satelites_por_hub"), (int, float)) \
             and not (isinstance(d, dict) and "satelites_por_hub" in d):

@@ -215,4 +215,15 @@ assert escolhe_manchete({"headline_options": [], "discover_headline": "Fallback"
 
 assert chave_manual("Bolo de Airfryer!") == chave_manual("bolo de airfryer") and chave_manual("x").startswith("manual:")
 
+# pesquisa de pautas da tela: categorias ativas + temas viram consultas
+cp = criterios_discover({"discover": {"pesquisa": {"hubs_ativos": ["doces-sobremesas"],
+                                                   "temas": {"doces-sobremesas": "bolo de pote, brigadeiro gourmet"}}}})
+assert cp["pesquisa"]["hubs_ativos"] == ["doces-sobremesas"]
+assert cp["pesquisa"]["temas"]["doces-sobremesas"] == "bolo de pote, brigadeiro gourmet"
+assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}}
+ct = consultas_do_hub(HUB, temas=["bolo de pote", "brigadeiro gourmet"])
+assert ct["serp"] == ["bolo de pote", "brigadeiro gourmet"] and ct["trends"] == ct["serp"]
+assert ct["noticias"] == ["bolo de pote OR brigadeiro gourmet"]
+assert consultas_do_hub(HUB, temas=[]) == consultas_do_hub(HUB)
+
 print("ok: motor discover — agrupamento, DiscoverScore, plano de producao, angulo, brief, checagem e otimizador")

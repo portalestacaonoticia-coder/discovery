@@ -68,10 +68,22 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
 
     total_sinais = total_topicos = total_sugeridas = 0
     melhores: list[dict] = []
+    # Pesquisa de pautas da tela Radar: so' os hubs que a pessoa ativou, com
+    # os temas macro que ela escreveu como consultas de sinal. Sem lista de
+    # ativos (tela nunca salva), todos os hubs entram com os padroes.
+    pesquisa = criterios.get("pesquisa") or {}
+    hubs_ativos = pesquisa.get("hubs_ativos") or []
+    temas_por_hub = pesquisa.get("temas") or {}
+    if hubs_ativos:
+        print(f"  categorias ativas: {', '.join(hubs_ativos)}")
+
     for hub in site.get("hubs", []) or []:
+        if hubs_ativos and hub["id"] not in hubs_ativos:
+            continue
         print(f"  [{hub['id']}]")
+        temas = [t.strip() for t in str(temas_por_hub.get(hub["id"]) or "").split(",") if t.strip()]
         novos = mod_sinais.coleta_sinais(nome, site, hub, banco, agora,
-                                         pagas=produzindo, leitor=leitor)
+                                         pagas=produzindo, leitor=leitor, temas=temas)
         total_sinais += len(novos)
 
         recentes = leitor.sinais_recentes(nome, hub["id"], dias=30)
