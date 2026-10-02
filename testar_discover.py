@@ -220,7 +220,7 @@ cp = criterios_discover({"discover": {"pesquisa": {"hubs_ativos": ["doces-sobrem
                                                    "temas": {"doces-sobremesas": "bolo de pote, brigadeiro gourmet"}}}})
 assert cp["pesquisa"]["hubs_ativos"] == ["doces-sobremesas"]
 assert cp["pesquisa"]["temas"]["doces-sobremesas"] == "bolo de pote, brigadeiro gourmet"
-assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}}
+assert criterios_discover(None)["pesquisa"] == {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre"}
 ct = consultas_do_hub(HUB, temas=["bolo de pote", "brigadeiro gourmet"])
 assert ct["serp"] == ["bolo de pote", "brigadeiro gourmet"] and ct["trends"] == ct["serp"]
 assert ct["noticias"] == ["bolo de pote OR brigadeiro gourmet"]
