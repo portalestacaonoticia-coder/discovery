@@ -111,27 +111,71 @@ def _json_ou_nada(r):
         return None
 
 
-def _categoria_id(base: str, cab: dict, nome: str) -> int | None:
-    """Acha a categoria do hub, cria se nao existir. Categoria = hub mantem o
-    cluster arrumado sem trabalho manual.
+# Categorias existentes por site, lidas uma vez por processo.
+_categorias_cache: dict[str, list[dict]] = {}
 
-    NUNCA levanta: categoria e' enfeite e o post sai sem ela. Site com problema
-    nao pode impedir a publicacao por causa de uma taxonomia."""
+
+def _normaliza_categoria(texto: str) -> str:
+    """'Política Monetária', 'politica-monetaria' e 'POLITICA MONETARIA'
+    viram a mesma chave: sem acento, minusculo, so' letras e numeros."""
+    sem_acento = (unicodedata.normalize("NFKD", texto or "")
+                  .encode("ascii", "ignore").decode())
+    return re.sub(r"[^a-z0-9]+", "", sem_acento.lower())
+
+
+def _categorias_existentes(base: str, cab: dict) -> list[dict]:
+    """Todas as categorias do WP do site ({id, name, slug}), paginando."""
+    if base in _categorias_cache:
+        return _categorias_cache[base]
+    todas: list[dict] = []
     try:
-        r = requests.get(f"{base}/wp-json/wp/v2/categories", headers=cab,
-                         params={"search": nome, "per_page": 10}, timeout=TEMPO_LIMITE)
-        if r.status_code < 400:
-            for c in (_json_ou_nada(r) or []):
-                if isinstance(c, dict) and str(c.get("name", "")).lower() == nome.lower():
-                    return c.get("id")
-        r = requests.post(f"{base}/wp-json/wp/v2/categories", headers=cab,
-                          json={"name": nome}, timeout=TEMPO_LIMITE)
-        if r.status_code >= 400:
-            return None
-        return (_json_ou_nada(r) or {}).get("id")
+        for pagina in range(1, 6):
+            r = requests.get(f"{base}/wp-json/wp/v2/categories", headers=cab,
+                             params={"per_page": 100, "page": pagina,
+                                     "_fields": "id,name,slug"},
+                             timeout=TEMPO_LIMITE)
+            lote = _json_ou_nada(r) if r.status_code < 400 else None
+            if not isinstance(lote, list) or not lote:
+                break
+            todas.extend(c for c in lote if isinstance(c, dict))
+            if len(lote) < 100:
+                break
     except Exception as erro:
-        print(f"  [categoria] nao consegui resolver '{nome}': {erro}")
+        print(f"  [categoria] nao consegui listar as categorias: {erro}")
+    _categorias_cache[base] = todas
+    return todas
+
+
+def acha_categoria(existentes: list[dict], nome: str) -> int | None:
+    """Id da categoria existente cujo NOME ou SLUG bate com `nome`,
+    ignorando acento, caixa e pontuacao. None se nao existe."""
+    alvo = _normaliza_categoria(nome)
+    if not alvo:
         return None
+    for c in existentes:
+        if _normaliza_categoria(str(c.get("name") or "")) == alvo:
+            return c.get("id")
+    for c in existentes:
+        if _normaliza_categoria(str(c.get("slug") or "")) == alvo:
+            return c.get("id")
+    return None
+
+
+def _categoria_id(base: str, cab: dict, nome: str) -> int | None:
+    """Acha uma categoria QUE JA' EXISTE no WordPress. NUNCA cria.
+
+    Ate 02/10/2026 o publicador criava a categoria quando nao achava o nome
+    exato — e como o padrao era o id do hub ("cotacao", "viagem"), o doll
+    ganhou duplicatas de "Cotacao" e "Viagem e IOF" que alguem teve de
+    apagar a mao. Categoria e' do editor: se nao existe, o post sai sem ela
+    (e o log diz qual faltou).
+
+    NUNCA levanta: categoria e' enfeite e o post sai sem ela."""
+    cid = acha_categoria(_categorias_existentes(base, cab), nome)
+    if cid is None:
+        print(f"  [categoria] '{nome}' nao existe no WordPress — post sai sem ela "
+              f"(o radar nao cria categoria)")
+    return cid
 
 
 def _categorias_do_hub(site: dict | None, hub_id: str) -> list[str]:
@@ -143,6 +187,13 @@ def _categorias_do_hub(site: dict | None, hub_id: str) -> list[str]:
             nomes = [str(c).strip() for c in (h.get("categorias") or [])]
             return [n for n in nomes if n]
     return []
+
+
+def _titulo_do_hub(site: dict | None, hub_id: str) -> str:
+    for h in (site or {}).get("hubs", []) or []:
+        if h.get("id") == hub_id:
+            return str(h.get("titulo") or "")
+    return ""
 
 
 def _nome_arquivo(titulo: str, tipo: str) -> str:
@@ -275,15 +326,26 @@ def publica(artigo: dict, wp: dict, site: dict | None = None,
         corpo["author"] = int(wp["autor_id"])
 
     if artigo.get("hub") and wp.get("categoria_por_hub", True):
-        # As categorias escolhidas na aba Discovery; sem escolha, a categoria
-        # com o nome do hub (comportamento original). Cada nome e' resolvido
-        # (ou criado) no WP; o que nao resolver e' pulado, nunca derruba o post.
-        nomes = _categorias_do_hub(site, artigo["hub"]) or [artigo["hub"]]
+        # As categorias do hub no sites.yaml (hubs[].categorias). Sem elas,
+        # tenta uma categoria EXISTENTE com o id ou o titulo do hub. Nada e'
+        # criado: o que nao existir e' pulado, nunca derruba o post.
         ids = []
-        for nome in nomes:
-            cid = _categoria_id(base, cab, nome)
-            if cid and cid not in ids:
-                ids.append(cid)
+        configuradas = _categorias_do_hub(site, artigo["hub"])
+        if configuradas:
+            for nome in configuradas:
+                cid = _categoria_id(base, cab, nome)
+                if cid and cid not in ids:
+                    ids.append(cid)
+        else:
+            existentes = _categorias_existentes(base, cab)
+            for candidato in (artigo["hub"], _titulo_do_hub(site, artigo["hub"])):
+                cid = acha_categoria(existentes, candidato or "")
+                if cid:
+                    ids.append(cid)
+                    break
+            else:
+                print(f"  [categoria] hub '{artigo['hub']}' sem categoria configurada "
+                      f"nem existente no WordPress — post sai sem categoria")
         if ids:
             corpo["categories"] = ids
 
