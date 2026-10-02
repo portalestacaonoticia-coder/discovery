@@ -377,12 +377,19 @@ def _tiktok(site: str, hub: str, consulta: str, agora=None) -> list[dict]:
 
 # -- configuracao do hub ------------------------------------------------------
 
-def consultas_do_hub(hub: dict) -> dict[str, list[str]]:
-    """O que consultar em cada fonte para este hub. `hubs[].sinais` no
-    sites.yaml sobrescreve; sem ele, valem os padroes: noticias e SERP a
-    partir do titulo/termos do hub, Trends com os dois primeiros termos,
-    social vazio (exige app configurado)."""
-    cfg = hub.get("sinais") or {}
+def consultas_do_hub(hub: dict, temas: list[str] | None = None) -> dict[str, list[str]]:
+    """O que consultar em cada fonte para este hub.
+
+    Ordem de precedencia: `temas` (os temas macro que a pessoa digitou na
+    tela Radar — a pesquisa de pautas) > `hubs[].sinais` do sites.yaml >
+    padroes (noticias e SERP a partir do titulo/termos do hub, Trends com
+    os dois primeiros termos, social vazio, que exige app configurado)."""
+    cfg = dict(hub.get("sinais") or {})
+    temas = [t.strip() for t in (temas or []) if t and t.strip()]
+    if temas:
+        cfg["noticias"] = [" OR ".join(temas[:4])]
+        cfg["serp"] = temas[:3]
+        cfg["trends"] = temas[:3]
     termos = [str(t) for t in (hub.get("termos") or [])]
     titulo = hub.get("titulo") or hub.get("id") or ""
 
@@ -412,7 +419,7 @@ def _venceu(ultima_iso: str | None, fonte: str, agora: datetime) -> bool:
 
 
 def coleta_sinais(nome: str, site: dict, hub: dict, banco, agora: datetime,
-                  pagas: bool = True, leitor=None) -> list[dict]:
+                  pagas: bool = True, leitor=None, temas: list[str] | None = None) -> list[dict]:
     """Coleta as fontes do hub cujo TTL venceu, grava e devolve os sinais
     novos. `pagas=False` (site fora do periodo de producao) pula SerpAPI,
     Trends, Reddit e YouTube — so' o RSS gratis roda.
@@ -424,7 +431,7 @@ def coleta_sinais(nome: str, site: dict, hub: dict, banco, agora: datetime,
     geo = str(cfg_site.get("geo") or "BR")
     hl = str(cfg_site.get("hl") or "pt-BR")
     hub_id = hub["id"]
-    consultas = consultas_do_hub(hub)
+    consultas = consultas_do_hub(hub, temas)
     teto = int(env("SERPAPI_TETO_DIA") or TETO_SERPAPI_DIA_PADRAO)
     inicio_dia = agora.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
 
