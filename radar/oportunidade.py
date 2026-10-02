@@ -50,7 +50,7 @@ def criterios_discover(criterios: dict | None) -> dict:
     # Pesquisa de pautas da tela Radar: categorias ativas e temas macro por
     # hub. Hub fora de hubs_ativos nao coleta sinal nem recebe sugestao;
     # temas viram as consultas de sinal do hub.
-    c["pesquisa"] = {"hubs_ativos": [], "temas": {}}
+    c["pesquisa"] = {"hubs_ativos": [], "temas": {}, "linha_editorial": "", "formato": "livre"}
     d = (criterios or {}).get("discover") if isinstance(criterios, dict) else None
     if isinstance(d, dict):
         for chave in ("minimo", "topicos_por_ciclo", "satelites_por_hub"):
@@ -64,6 +64,11 @@ def criterios_discover(criterios: dict | None) -> dict:
             c["pesquisa"]["hubs_ativos"] = [str(h) for h in (p.get("hubs_ativos") or []) if h]
             c["pesquisa"]["temas"] = {str(h): str(t) for h, t in (p.get("temas") or {}).items()
                                       if isinstance(t, str) and t.strip()}
+            # Linha editorial da tela: regras livres + formato ("individual" =
+            # um assunto por pauta, sem listas). O motor as passa ao angulo,
+            # ao brief e ao redator.
+            c["pesquisa"]["linha_editorial"] = str(p.get("linha_editorial") or "").strip()[:1000]
+            c["pesquisa"]["formato"] = "individual" if p.get("formato") == "individual" else "livre"
     # o teto por hub tambem pode vir do criterio antigo (mesma tela)
     if isinstance(criterios, dict) and isinstance(criterios.get("satelites_por_hub"), (int, float)) \
             and not (isinstance(d, dict) and "satelites_por_hub" in d):

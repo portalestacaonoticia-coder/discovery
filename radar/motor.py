@@ -155,7 +155,11 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
             if seco:
                 print(f"    [seco] produziria: {ideia['titulo'][:70]}")
                 continue
-            pauta = mod_ideias.produz(ideia, nome, site, hub, banco, leitor, agora)
+            # A linha editorial da tela (regras + formato) vai junto para o
+            # angulo, o brief e, dentro do brief, para o redator.
+            site_ed = {**site, "_linha_editorial": pesquisa.get("linha_editorial") or "",
+                       "_formato": pesquisa.get("formato") or "livre"}
+            pauta = mod_ideias.produz(ideia, nome, site_ed, hub, banco, leitor, agora)
             if pauta:
                 produzidas += 1
                 vagas -= 1

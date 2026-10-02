@@ -57,7 +57,7 @@ def produz(ideia: dict, nome: str, site: dict, hub: dict, banco, leitor,
     tenta na proxima rodada; o motivo sai no log)."""
     publicados = [a.get("titulo") or "" for a in leitor.artigos_publicados_do_hub(nome, hub["id"])]
     angulos = angulos_ia.propoe_angulos(ideia, site, hub, publicados)
-    angulo = angulos_ia.escolhe_angulo(angulos or [], hub)
+    angulo = angulos_ia.escolhe_angulo(angulos or [], hub, site.get("_formato"))
     if not angulo:
         print(f"    [ideia {ideia['id']}] sem angulo utilizavel")
         return None

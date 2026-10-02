@@ -25,6 +25,24 @@ PROIBIDO_IMAGEM = re.compile(
     r"\b(rosto|face|celebridade|famos[oa]|logo(tipo)?|marca|texto|letreiro|"
     r"placa com|bandeira|crian[cç]a|bebe|beb[eê])\b", re.I)
 MIN_HEADLINES = 3
+# Pauta-lista ("10 receitas de...", "7 ideias para..."): barrada quando a
+# linha editorial do site pede um assunto por pauta (formato "individual").
+LISTA = re.compile(
+    r"^\s*\d+\s|\b(\d+|duas|dois|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze|quinze|vinte)\s+"
+    r"(receitas|ideias|dicas|pratos|op[cç][oõ]es|formas|jeitos|lanches|sobremesas|bolos|doces|"
+    r"petiscos|sugest[oõ]es|maneiras|truques|combina[cç][oõ]es)\b|\breceitas\b", re.I)
+
+
+def regras_editoriais(texto: str | None, formato: str | None) -> str:
+    """Bloco de regras da linha editorial do site (tela Radar), para colar
+    nos prompts de angulo, brief e redacao. Vazio se nao ha' regra."""
+    partes = []
+    if formato == "individual":
+        partes.append("- FORMATO: um unico assunto por artigo (uma receita, um prato, um tema). "
+                      "PROIBIDO lista, coletanea ou ranking (\"5 receitas\", \"10 ideias\").")
+    if texto and texto.strip():
+        partes.append(f"- LINHA EDITORIAL DO SITE (siga a risca): {texto.strip()}")
+    return ("\n".join(partes) + "\n") if partes else ""
 
 
 def _caixa_alta_demais(t: str) -> bool:
@@ -51,6 +69,7 @@ def _sistema(site: dict, hub: dict) -> str:
         "a imagem nao tem texto nem rosto reconhecivel.\n"
         "- Links internos SO' da lista fornecida.\n"
         "- `original_insight`: a leitura propria que nenhum concorrente da lista fez.\n"
+        + regras_editoriais(site.get("_linha_editorial"), site.get("_formato")) +
         "Responda SO um JSON com EXATAMENTE estas chaves: headline_options "
         "(3 a 6 strings), discover_headline (uma das options), seo_title (ate 60), "
         "dek (120 a 200 caracteres), main_angle, reader_profile, why_now, "
@@ -112,7 +131,8 @@ def monta_brief(ideia: dict, angulo: dict, evidencias: dict, site: dict, hub: di
         dados = None
     if not isinstance(dados, dict):
         return None
-    brief, problemas = valida_brief(dados, evidencias)
+    formato = site.get("_formato") or "livre"
+    brief, problemas = valida_brief(dados, evidencias, formato)
     if brief is None:
         print(f"  [brief] rejeitado: {'; '.join(problemas)[:200]}")
         return None
@@ -120,6 +140,9 @@ def monta_brief(ideia: dict, angulo: dict, evidencias: dict, site: dict, hub: di
         print(f"  [brief] ajustado: {'; '.join(problemas)[:200]}")
     brief["angulo"] = {k: angulo.get(k) for k in ("id", "tipo", "titulo_trabalho", "promessa",
                                                    "por_que_agora", "risco_factual")}
+    # A linha editorial viaja no brief: o redator e a correcao a obedecem
+    # sem precisar ler `metas` de novo.
+    brief["linha_editorial"] = {"texto": site.get("_linha_editorial") or "", "formato": formato}
     return brief
 
 
@@ -127,16 +150,18 @@ def _lista(v) -> list:
     return v if isinstance(v, list) else []
 
 
-def valida_brief(b: dict, ev: dict) -> tuple[dict | None, list[str]]:
+def valida_brief(b: dict, ev: dict, formato: str = "livre") -> tuple[dict | None, list[str]]:
     """Corrige o que da', remove o que nao pode, lista o que mudou. Devolve
-    (None, motivos) quando o brief nao serve."""
+    (None, motivos) quando o brief nao serve. `formato="individual"` barra
+    manchete de lista."""
     problemas: list[str] = []
     saida: dict = {}
 
     opcoes = [str(h).strip() for h in _lista(b.get("headline_options")) if str(h).strip()]
-    validas = [h for h in opcoes if manchete_ok(h)]
+    validas = [h for h in opcoes if manchete_ok(h)
+               and not (formato == "individual" and LISTA.search(h))]
     if len(validas) < len(opcoes):
-        problemas.append(f"{len(opcoes) - len(validas)} manchete(s) removida(s) (caca-clique/tamanho)")
+        problemas.append(f"{len(opcoes) - len(validas)} manchete(s) removida(s) (caca-clique/tamanho/lista)")
     if len(validas) < MIN_HEADLINES:
         return None, problemas + [f"menos de {MIN_HEADLINES} manchetes validas"]
     saida["headline_options"] = validas[:6]
