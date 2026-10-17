@@ -75,6 +75,38 @@ def _fato_confiavel(fato: dict, citacoes: list[dict], dominios: list[str]) -> bo
     return any(host == d or host.endswith("." + d) for d in dominios)
 
 
+_NUMERO = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def _so_digitos(n: str) -> str:
+    """"1.000,00" -> "1000"; "3,5" -> "35". Centavos zerados (1 ou 2 zeros)
+    saem antes; ".000" e' milhar e fica."""
+    return re.sub(r"\D", "", re.sub(r"[.,]0{1,2}$", "", n))
+
+
+def _valor_lido(fato: dict, citacoes: list[dict]) -> bool:
+    """Todo numero do `valor` aparece no texto da pagina citada?
+
+    Vale so' quando a citacao traz o `texto` lido — o modo local do llm.py
+    (16/10/2026), em que o CODIGO leu a pagina e o modelo local escreveu o
+    fato. No teste daquele dia o Qwen deu duas aliquotas de IOF diferentes
+    para a mesma pergunta, com toda a seguranca: fato com numero que nao esta'
+    na pagina nao entra. Na OpenAI (sem `texto`) nada muda. A comparacao e'
+    por digitos, para "3,5%" casar com "3.5 %" e "R$ 1.000" com "1000"."""
+    url = str(fato.get("fonte_url") or "").strip().rstrip("/")
+    pagina = next((c for c in citacoes if c.get("texto")
+                   and c["url"].rstrip("/") == url), None)
+    if pagina is None:
+        # Citacao sem texto (OpenAI) passa; no modo local, URL fora das
+        # paginas lidas nao tem como ser conferida.
+        return not any(c.get("texto") for c in citacoes)
+    numeros = [_so_digitos(n) for n in _NUMERO.findall(str(fato.get("valor") or ""))]
+    if not numeros:
+        return True
+    lidos = {_so_digitos(n) for n in _NUMERO.findall(pagina["texto"])}
+    return all(n in lidos for n in numeros if n)
+
+
 def _sistema_pesquisa(site: dict, hub: dict) -> str:
     return (
         f"Voce e' pesquisador do {site.get('entidade') or site.get('dominio')}, "
@@ -122,7 +154,9 @@ def pesquisa(ideia: dict, angulo: dict, nome: str, site: dict, hub: dict, banco)
         except json.JSONDecodeError:
             dados = {}
         for f in (dados.get("fatos") or []) if isinstance(dados, dict) else []:
-            if isinstance(f, dict) and f.get("afirmacao") and _fato_confiavel(f, citacoes, dominios):
+            if (isinstance(f, dict) and f.get("afirmacao")
+                    and _fato_confiavel(f, citacoes, dominios)
+                    and _valor_lido(f, citacoes)):
                 fatos.append({
                     "afirmacao": str(f["afirmacao"]).strip()[:400],
                     "valor": str(f.get("valor") or "").strip()[:120],

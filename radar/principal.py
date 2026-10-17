@@ -16,7 +16,7 @@ from . import llm, motor
 from .alerta import avisa
 from .banco import Banco
 from .classifica import avalia, sugere
-from .config import carrega_sites
+from .config import carrega_sites, filtra_sites
 from .fontes import coleta
 from .normaliza import canoniza_url, hash_dedup, sem_acento, veiculo_de
 from .selecao import roda_selecao
@@ -139,6 +139,7 @@ def main() -> int:
             print(f"Site '{args.site}' nao existe em config/sites.yaml")
             return 1
         sites = {args.site: sites[args.site]}
+    sites = filtra_sites(sites)
 
     banco = Banco(seco=args.seco)
     resumo = []

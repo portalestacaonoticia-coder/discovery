@@ -11,6 +11,12 @@ on:
 jobs:
   rodar:
     runs-on: ubuntu-latest
+    # Sites que rodam FORA do Actions (16/10/2026: o doll passa para os Macs,
+    # com o modelo local). Variavel do repositorio, sem deploy: Settings ->
+    # Secrets and variables -> Actions -> Variables -> RADAR_IGNORA_SITES=doll.
+    # Vazia = tudo roda aqui, como antes. Ver radar/config.py:site_ativo.
+    env:
+      RADAR_IGNORA_SITES: ${{ vars.RADAR_IGNORA_SITES }}
     # 30 min: a esteira dos blogs escreve com LLM e baixa imagem, entao a
     # rodada ficou bem mais longa que a da coleta sozinha.
     timeout-minutes: 30

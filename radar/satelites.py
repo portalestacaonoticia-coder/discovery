@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 from .alerta import avisa
 from .banco import Banco
-from .config import RAIZ, carrega_sites
+from .config import RAIZ, carrega_sites, site_ativo
 from .gerador_satelite import monta
 
 SITE = "doll"
@@ -40,6 +40,9 @@ def main() -> int:
                         "criterios do site; padrao la' e' 2)")
     args = p.parse_args()
 
+    if not site_ativo(SITE):
+        print(f"{SITE} roda em outro ambiente (RADAR_SITES/RADAR_IGNORA_SITES)")
+        return 0
     site = carrega_sites()[SITE]
     banco = Banco(seco=args.seco)
     leitor = banco if not args.seco else Banco(seco=False)
