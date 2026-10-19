@@ -262,6 +262,11 @@ def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
     corpo = {"model": env("LLM_LOCAL_MODELO") or MODELO_LOCAL_PADRAO,
              "messages": mensagens, "max_tokens": max_tokens + folga,
              "temperature": 0.6, "stream": False}
+    # Ensaio de 19/10/2026: com o pensamento ligado o Qwen as vezes nao para
+    # de raciocinar e estoura o max_tokens (14 min e TEMPLATE). Desligado por
+    # padrao; LLM_LOCAL_RACIOCINIO=1 religa.
+    if (env("LLM_LOCAL_RACIOCINIO") or "") != "1":
+        corpo["enable_thinking"] = False
     try:
         r = requests.post(f"{base}/chat/completions", json=corpo,
                           timeout=int(env("LLM_LOCAL_TIMEOUT") or TIMEOUT_LOCAL_S))

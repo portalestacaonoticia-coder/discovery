@@ -379,7 +379,7 @@ class Banco:
         consulta = (self.cliente.table("pautas")
                     .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,"
                             "pontuacao,horario_sugerido,tipo,topico_id,brief,evidencias,"
-                            "itens(titulo,url,veiculo)")
+                            "itens(titulo,url,veiculo,publicado_em)")
                     .eq("site", site).eq("status", "aprovada")
                     .gte("selecionada_em", inicio_dia_iso)
                     .lt("selecionada_em", self._fim_do_dia(inicio_dia_iso)))

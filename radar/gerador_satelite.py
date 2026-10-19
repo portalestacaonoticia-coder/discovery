@@ -18,6 +18,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from . import llm
+from .confere_satelite import confere
 from .gerador_dolar import DIAS, MESES, brl, pct, _rumo
 
 FUSO_SP = timezone(timedelta(hours=-3))
@@ -39,6 +40,18 @@ ENQUADRE_HUB = {
     "indicadores": ("Dólar a {v} {quando}: o número e o que ele mostra",
                     "quanto custa comprar dólar hoje"),
 }
+
+
+def _data_manchete(item: dict):
+    """Dia (Sao Paulo) em que a manchete saiu; None se o feed nao disse."""
+    bruto = (item or {}).get("publicado_em")
+    if not bruto:
+        return None
+    try:
+        return datetime.fromisoformat(str(bruto).replace("Z", "+00:00")) \
+            .astimezone(FUSO_SP).date()
+    except ValueError:
+        return None
 
 
 def _veiculo_limpo(item: dict) -> str:
@@ -141,17 +154,21 @@ def _apendices(site: dict, serie: list[dict], leia_tambem: list[dict],
 
 
 def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
-               site: dict) -> dict | None:
-    """Escreve o satelite com o gpt-5.6-luna (radar/llm.py). None se nao houver chave ou falhar
-    — quem chama cai no template. Os guarda-corpos vao no prompt: gancho
-    atribuido a fonte, corpo ancorado no dado, fecho com link ancora."""
+               site: dict) -> tuple[dict | None, str]:
+    """Escreve o satelite com o gpt-5.6-luna (radar/llm.py). (None, motivo) se
+    nao houver chave ou falhar — quem chama cai no template. Os guarda-corpos
+    vao no prompt (gancho atribuido a fonte, corpo ancorado no dado, fecho
+    com link ancora) e o texto passa pelo conferente (radar/confere_satelite.py):
+    reprovado, o modelo reescreve UMA vez com a lista do que errou."""
     if not llm.tem_chave():
-        return None
+        return None, "sem chave de IA"
     n = _numeros(serie)
     item = pauta.get("itens") or {}
     veiculo = _veiculo_limpo(item)
     manchete = _manchete(item)
     fonte_url = item.get("url") or ""
+    hoje = datetime.now(FUSO_SP).date()
+    data_manchete = _data_manchete(item)
     hub = pauta.get("hub") or "cotacao"
     _, servico = ENQUADRE_HUB.get(hub, ENQUADRE_HUB["cotacao"])
 
@@ -195,6 +212,15 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         "(ex.: a que distancia esta da maxima). Atencao: quando o DOLAR "
         "sobe, o real cai (e vice-versa) — respeite a direcao exata, nunca "
         "inverta quem subiu.\n"
+        "- Vocabulario: a PTAX e' a taxa de referencia do Banco Central — "
+        "NUNCA a chame de 'dolar comercial'. A maxima e a minima fornecidas "
+        "sao do ultimo ano: diga 'maxima/minima do ano' ou 'dos ultimos 12 "
+        "meses', NUNCA 'historica'.\n"
+        "- Nada de analise propria: sem suporte, resistencia, barreira, "
+        "rompimento, rotacao de posicoes, derivativos, hedge, previsao ou "
+        "explicacao de causa que nao esteja na manchete. Descreva os numeros.\n"
+        "- Se a fonte nao tiver nome, escreva 'segundo a imprensa' — nunca "
+        "'o veiculo' nem placeholder.\n"
         "- Estruture em 3-4 paragrafos com UM subtitulo markdown (##) no "
         "meio; nada de lista de topicos.\n"
         "- Termine convidando a ler a pagina-guia, com o link em markdown.\n"
@@ -205,10 +231,16 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
     prompt = (
         f"Hub da pauta: {hub}.\n"
         f"Gancho (manchete de terceiro): \"{manchete or 'dolar no noticiario'}\"\n"
-        f"Fonte: {veiculo or 'imprensa (veiculo nao identificado)'}"
+        f"Fonte: {veiculo or 'a imprensa (sem nome do veiculo)'}"
         + (f" — link: {fonte_url}" if fonte_url else "") + "\n"
+        + (f"A manchete foi publicada em: {_data_extenso(data_manchete)}"
+           + (" (NAO e' hoje: nao diga que a noticia e' de hoje).\n"
+              if data_manchete != hoje else ".\n")
+           if data_manchete else
+           "A data da manchete e' desconhecida: nao atribua a noticia a "
+           "nenhum dia.\n") +
         f"Dado proprio (nossa base, PTAX do Banco Central): {dado}.\n"
-        f"HOJE e': {_data_extenso(datetime.now(FUSO_SP).date())}.\n"
+        f"HOJE e': {_data_extenso(hoje)}.\n"
         f"A cotacao e' do PREGAO de: {_data_extenso(n['data'])}.\n"
         "Se hoje e o pregao forem dias DIFERENTES (noite, fim de semana), "
         "deixe isso claro no texto (ex.: 'no fechamento de sexta-feira') e "
@@ -218,20 +250,34 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
            else "(nenhuma disponivel — feche sem link)") + "\n\n"
         "Escreva a nota.")
 
-    saida = llm.gera(prompt, sistema=sistema, max_tokens=1800)
-    if not saida:
-        return None
-    bruto = re.search(r"\{.*\}", saida, re.S)
-    if not bruto:
-        return None
-    try:
-        d = json.loads(bruto.group(0))
-    except json.JSONDecodeError:
-        return None
-    titulo = str(d.get("titulo") or "").strip()[:110]
-    corpo = str(d.get("corpo_md") or "").strip()
-    if not titulo or len(corpo) < 500:
-        return None  # saida pobre/rasa: cai no template
+    motivo = ""
+    for tentativa in (1, 2):
+        pedido = prompt if tentativa == 1 else (
+            prompt + "\n\nSua versao anterior foi REPROVADA pelo conferente:\n"
+            + motivo + "\nReescreva a nota inteira corrigindo isso.")
+        saida = llm.gera(pedido, sistema=sistema, max_tokens=1800)
+        if not saida:
+            return None, "o modelo nao respondeu"
+        bruto = re.search(r"\{.*\}", saida, re.S)
+        try:
+            d = json.loads(bruto.group(0)) if bruto else None
+        except json.JSONDecodeError:
+            d = None
+        if not isinstance(d, dict):
+            motivo = "- a resposta nao foi um JSON valido {\"titulo\", \"corpo_md\"}"
+            continue
+        titulo = str(d.get("titulo") or "").strip()[:110]
+        corpo = str(d.get("corpo_md") or "").strip()
+        if not titulo or len(corpo) < 500:
+            # saida pobre/rasa
+            motivo = "- o texto veio sem titulo ou curto demais (minimo 250 palavras)"
+            continue
+        problemas = confere(titulo, corpo, n, manchete, hoje, data_manchete)
+        if not problemas:
+            break
+        motivo = "\n".join(f"- {p}" for p in problemas)
+    else:
+        return None, "reprovado 2x: " + motivo.replace("\n", " ")
 
     agora = datetime.now().astimezone().isoformat(timespec="seconds")
     jsonld = json.dumps({
@@ -244,7 +290,8 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
     markdown = f"# {titulo}\n\n{corpo}\n"
     resumo = corpo.split("\n\n")[0][:280]
     return {"titulo": titulo, "markdown": markdown, "resumo": resumo,
-            "jsonld": jsonld, "por": "llm"}
+            "jsonld": jsonld, "por": "llm",
+            "motivo": "aprovado na 1a" if tentativa == 1 else "aprovado na 2a"}, ""
 
 
 def monta(pauta: dict, serie: list[dict], url_ancora: str | None,
@@ -252,8 +299,10 @@ def monta(pauta: dict, serie: list[dict], url_ancora: str | None,
     """Satelite pelo gpt-5.6-luna quando ha' chave; senao, pelo template. Ambos
     respeitam os mesmos guarda-corpos (fonte atribuida, dado proprio, link)
     e ganham os apendices deterministicos: conversao do dia + Leia tambem."""
-    art = _monta_llm(pauta, serie, url_ancora, site) \
-        or _monta_template(pauta, serie, url_ancora, site)
+    art, motivo = _monta_llm(pauta, serie, url_ancora, site)
+    if not art:
+        art = _monta_template(pauta, serie, url_ancora, site)
+        art["por"], art["motivo"] = "template", motivo
     art["markdown"] = art["markdown"].rstrip() + _apendices(
         site, serie, leia_tambem or [], url_ancora)
     return art

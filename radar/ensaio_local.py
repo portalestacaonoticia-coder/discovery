@@ -31,7 +31,7 @@ def pautas_publicadas(banco: Banco, site: str, limite: int) -> list[dict]:
     r = (banco.cliente.table("pautas")
          .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,pontuacao,"
                  "horario_sugerido,tipo,topico_id,brief,evidencias,"
-                 "itens(titulo,url,veiculo)")
+                 "itens(titulo,url,veiculo,publicado_em)")
          .eq("site", site).eq("status", "publicada")
          .order("selecionada_em", desc=True).limit(limite).execute())
     return list(r.data or [])
@@ -65,9 +65,12 @@ def escreve_satelite(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dic
                   or banco.ancora_do_hub(nome, "cotacao"))
     llm.limpa_falhas()
     art = monta(pt, serie, url_ancora, site, banco.artigos_recentes(nome))
-    # monta cai no TEMPLATE quando o modelo falha: o ensaio precisa dizer.
-    origem = "TEMPLATE (o modelo falhou)" if llm.falhas() else "modelo local"
-    return art, f"escrito por: {origem}"
+    # monta cai no TEMPLATE quando o modelo falha OU quando o conferente
+    # reprova duas vezes: o rotulo vem do proprio artigo, nao das falhas do
+    # llm (JSON curto ou reprovado nao registra falha nenhuma).
+    if art.get("por") == "llm":
+        return art, f"escrito por: modelo local ({art.get('motivo')})"
+    return art, f"escrito por: TEMPLATE — {art.get('motivo') or 'o modelo falhou'}"
 
 
 def main() -> int:
