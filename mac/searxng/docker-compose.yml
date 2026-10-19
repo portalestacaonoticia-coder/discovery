@@ -1,0 +1,16 @@
+# Busca gratis do Radar no Mac (16/10/2026). Substitui a busca paga da OpenAI
+# no modo local: radar/busca_local.py consulta este SearXNG e le as paginas.
+# So' escuta no proprio Mac (127.0.0.1): nao fica aberto na rede.
+#
+#   (o mac/instalar.sh cria o settings.local.yml com a chave secreta)
+#   cd mac/searxng && docker compose up -d     # liga (e religa sozinho)
+#   curl "http://localhost:8888/search?q=ptax&format=json" | head -c 300
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./settings.local.yml:/etc/searxng/settings.yml:ro

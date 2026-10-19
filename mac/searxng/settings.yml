@@ -1,0 +1,15 @@
+# Configuracao minima: herda tudo do padrao do SearXNG e liga o formato JSON,
+# que e' o que o radar le. O mac/instalar.sh copia este arquivo
+# para settings.local.yml (fora do git) com uma chave secreta de verdade.
+use_default_settings: true
+
+server:
+  secret_key: "TROCAR_PELO_INSTALADOR"
+  limiter: false          # uso local, um cliente so'
+  image_proxy: false
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json

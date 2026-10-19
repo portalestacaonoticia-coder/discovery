@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from . import llm
 from .alerta import avisa
 from .banco import Banco
-from .config import RAIZ, carrega_sites
+from .config import RAIZ, carrega_sites, site_ativo
 from .gerador_dolar import DIAS, MESES, brl, pct
 
 SITE = "doll"
@@ -152,6 +152,9 @@ def main() -> int:
     p.add_argument("--seco", action="store_true", help="decide e mostra, nao publica")
     args = p.parse_args()
 
+    if not site_ativo(SITE):
+        print(f"{SITE} roda em outro ambiente (RADAR_SITES/RADAR_IGNORA_SITES)")
+        return 0
     site = carrega_sites()[SITE]
     piso = (site.get("publicacao") or {}).get("piso")
     if not piso:

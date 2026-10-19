@@ -46,6 +46,13 @@ radar/
 │   │                         `execucoes` (resumo_falhas), nunca e' engolido.
 │   │                         gera_com_busca(): texto + citacoes, com a busca
 │   │                         da API restrita aos dominios das fontes do hub.
+│   │                         MODO LOCAL (LLM_LOCAL_URL): o texto sai do exo
+│   │                         nos Macs, custo zero; a busca vira busca_local.
+│   ├── busca_local.py      ← busca do modo local: SearXNG + leitura das paginas
+│   │                         dos dominios permitidos. A citacao leva o texto
+│   │                         lido, e pesquisa._valor_lido confere o numero.
+│   ├── ensaio_local.py     ← reescreve pautas ja' publicadas com o modelo local
+│   │                         e poe ao lado do que esta' no ar (saida/ensaio/).
 │   ├── gerador_satelite.py ← artigo-satelite: escrito pelo gpt-5.6-luna quando ha chave
 │   │                         (titulos unicos, fato atribuido a fonte, dado proprio,
 │   │                         link ancora); template como fallback.
@@ -73,6 +80,9 @@ radar/
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
 ├── testar_selecao.py       ← teste offline da selecao automatica de pautas
+├── testar_llm_local.py     ← teste offline do modo local (exo + SearXNG simulados)
+├── mac/                    ← kit do doll nos Macs: instalar.sh, rodar_doll.sh,
+│                             agendamento (launchd), SearXNG. Ver mac/LEIA-ME.md.
 ├── wordpress/
 │   ├── radar-jsonld.php    ← mu-plugin: imprime o JSON-LD no <head> e ajusta
 │   │                         max-snippet/max-image-preview

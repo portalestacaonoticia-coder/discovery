@@ -12,6 +12,12 @@ Uma chave so', OPENAI_API_KEY. Fala com a API direto via requests (ja' e'
 dependencia do projeto) — sem SDK extra para instalar. Usa a Responses API
 (/v1/responses), que e' onde vive a busca na web da propria OpenAI.
 
+Modo local (16/10/2026): com LLM_LOCAL_URL no ambiente, o TEXTO sai do
+modelo que roda nos Macs (exo, API compativel com a OpenAI em
+/v1/chat/completions) e nao da' OpenAI — custo zero por chamada. A busca
+vira codigo: SearXNG + leitura das paginas (radar/busca_local.py). So' a
+imagem (gera_imagem) continua na OpenAI, e so' se houver OPENAI_API_KEY.
+
 Duas portas:
   gera()           texto puro, sem ferramenta.
   gera_com_busca() texto + CITACOES, com a busca na web da propria API
@@ -21,6 +27,9 @@ Duas portas:
                    nunca referencia inventada.
 """
 from __future__ import annotations
+
+import json
+import re
 
 import requests
 
@@ -47,14 +56,27 @@ MAX_BUSCAS_PADRAO = 3
 # `filters.allowed_domains` aceita no maximo 20 dominios por pedido.
 MAX_DOMINIOS = 20
 
+# Modo local. O exo nao cobra por chamada; o preco e' o TEMPO (14,7 tok/s
+# no Qwen3.8-27B em dois Macs, 16/10/2026), por isso o prazo e' longo.
+MODELO_LOCAL_PADRAO = "mlx-community/Qwen3.8-27B-8bit"
+TIMEOUT_LOCAL_S = 1200
+# O Qwen pensa antes de responder, e o pensamento conta no max_tokens. Sem
+# folga, a classificacao (300 tokens) seria cortada no meio do raciocinio.
+FOLGA_RACIOCINIO = 4000
+
 # Falhas da rodada, na ordem. Cada mensagem distinta e' impressa UMA vez
 # (um 429 em 80 itens nao vira 80 linhas de log) mas contada todas.
 _falhas: list[str] = []
 _impressas: set[str] = set()
 
 
+def modo_local() -> bool:
+    return bool(env("LLM_LOCAL_URL"))
+
+
 def tem_chave() -> bool:
-    return bool(env("OPENAI_API_KEY"))
+    """Ha' modelo de texto disponivel? (OpenAI com chave, ou o local.)"""
+    return modo_local() or bool(env("OPENAI_API_KEY"))
 
 
 def _registra_falha(mensagem: str) -> None:
@@ -199,6 +221,77 @@ def _texto_e_citacoes(saida) -> tuple[str, list[dict], int]:
     return "".join(partes).strip(), citacoes, buscas
 
 
+def tira_raciocinio(texto: str) -> str:
+    """Remove o pensamento do Qwen (<think>...</think>). O template do modelo
+    as vezes abre o <think> no proprio prompt, e a resposta traz so' o fecho:
+    nesse caso vale o que vem depois do ultimo </think>."""
+    texto = re.sub(r"<think>.*?</think>", "", texto or "", flags=re.S)
+    if "</think>" in texto:
+        texto = texto.rsplit("</think>", 1)[1]
+    return texto.strip()
+
+
+def extrai_json(texto: str) -> str | None:
+    """O objeto JSON de uma resposta que pode vir com texto em volta ou
+    dentro de ```json```. Devolve o JSON como texto, ou None se nao houver
+    um objeto valido."""
+    inicio, fim = (texto or "").find("{"), (texto or "").rfind("}")
+    if inicio < 0 or fim <= inicio:
+        return None
+    bruto = texto[inicio:fim + 1]
+    try:
+        json.loads(bruto)
+    except json.JSONDecodeError:
+        return None
+    return bruto
+
+
+def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
+                json_obj: bool) -> str | None:
+    """Uma chamada ao exo (/v1/chat/completions). Mesmo contrato de `gera`:
+    texto ou None, com a falha registrada."""
+    base = (env("LLM_LOCAL_URL") or "").rstrip("/")
+    instrucoes = (sistema or "").strip()
+    if json_obj:
+        # O exo nao garante JSON como a OpenAI; quem garante e' extrai_json.
+        instrucoes = (instrucoes + "\n\nResponda SOMENTE com um objeto JSON "
+                      "valido, sem nenhum texto antes ou depois.").strip()
+    mensagens = [{"role": "system", "content": instrucoes}] if instrucoes else []
+    mensagens.append({"role": "user", "content": prompt})
+    folga = int(env("LLM_LOCAL_FOLGA") or FOLGA_RACIOCINIO)
+    corpo = {"model": env("LLM_LOCAL_MODELO") or MODELO_LOCAL_PADRAO,
+             "messages": mensagens, "max_tokens": max_tokens + folga,
+             "temperature": 0.6, "stream": False}
+    try:
+        r = requests.post(f"{base}/chat/completions", json=corpo,
+                          timeout=int(env("LLM_LOCAL_TIMEOUT") or TIMEOUT_LOCAL_S))
+    except requests.RequestException as erro:
+        _registra_falha(f"local: sem conexao com o exo em {base}: {erro}")
+        return None
+    if not r.ok:
+        _registra_falha(f"local: HTTP {r.status_code} {(r.text or '').strip()[:200]}")
+        return None
+    try:
+        escolha = r.json()["choices"][0]
+        texto = escolha["message"]["content"] or ""
+    except (ValueError, KeyError, IndexError, TypeError):
+        _registra_falha("local: resposta do exo sem 'choices'")
+        return None
+    if escolha.get("finish_reason") == "length":
+        # Cortado no teto: JSON pela metade nao serve (mesma regra do
+        # status=incomplete da OpenAI).
+        _registra_falha("local: resposta incompleta (max_tokens)")
+        return None
+    texto = tira_raciocinio(texto)
+    if json_obj:
+        bruto = extrai_json(texto)
+        if bruto is None:
+            _registra_falha("local: modelo nao devolveu JSON valido")
+            return None
+        texto = bruto
+    return texto or None
+
+
 def gera(prompt: str, sistema: str | None = None, max_tokens: int = 1000,
          modelo: str | None = None, json_obj: bool = False) -> str | None:
     """Texto do modelo, ou None se nao der (sem chave, erro de API, vazio).
@@ -206,6 +299,9 @@ def gera(prompt: str, sistema: str | None = None, max_tokens: int = 1000,
     json_obj=True pede a resposta em modo JSON (a API garante um objeto
     valido). Sem chave NAO e' falha — e' o modo sem LLM, por desenho. Erro da
     API e' falha: fica registrado (ver `resumo_falhas`)."""
+    if modo_local():
+        # `modelo` e' nome de modelo da OpenAI: no local vale LLM_LOCAL_MODELO.
+        return _gera_local(prompt, sistema, max_tokens, json_obj)
     if not tem_chave():
         return None
     dados = _chama(_corpo(prompt, sistema, max_tokens, modelo, json_obj))
@@ -228,6 +324,8 @@ def gera_com_busca(prompt: str, dominios: list[str], sistema: str | None = None,
     dominios = [d for d in (dominios or []) if d][:MAX_DOMINIOS]
     if not dominios:
         return gera(prompt, sistema=sistema, max_tokens=max_tokens), []
+    if modo_local():
+        return _gera_com_busca_local(prompt, dominios, sistema, max_tokens, max_buscas)
     if not tem_chave():
         return None, []
 
@@ -249,6 +347,54 @@ def gera_com_busca(prompt: str, dominios: list[str], sistema: str | None = None,
         if buscas > max_buscas:
             print(f"  [busca] passou do teto sugerido de {max_buscas}")
     return (texto or None), citacoes
+
+
+def _consultas_locais(prompt: str, max_buscas: int) -> list[str]:
+    """O modelo local escreve as consultas; se falhar, a primeira linha do
+    pedido (sem o rotulo "Ideia:") vira a consulta."""
+    pedido = ("Voce vai pesquisar na web para atender o pedido abaixo. Escreva "
+              f"ate' {max_buscas} consultas de busca curtas (3 a 8 palavras), "
+              "objetivas, no idioma das fontes. Responda SO um JSON: "
+              '{"consultas": ["..."]}\n\nPEDIDO:\n' + prompt[:4000])
+    consultas: list[str] = []
+    saida = _gera_local(pedido, None, 300, True)
+    if saida:
+        lido = json.loads(saida)
+        bruto = lido.get("consultas") if isinstance(lido, dict) else None
+        consultas = [str(c).strip() for c in (bruto or []) if str(c).strip()]
+    if not consultas:
+        linha = next((l for l in prompt.splitlines() if l.strip()), "")
+        consultas = [re.sub(r"^\s*[\w ]{1,20}:\s*", "", linha).strip()[:120]]
+    return [c for c in consultas if c][:max_buscas]
+
+
+def _gera_com_busca_local(prompt: str, dominios: list[str], sistema: str | None,
+                          max_tokens: int, max_buscas: int) -> tuple[str | None, list[dict]]:
+    """gera_com_busca no Mac: o codigo busca e le, o modelo so' escreve.
+
+    Sem pagina lida, NAO escreve: de memoria o modelo local inventa numero.
+    As citacoes levam o `texto` lido, para a pesquisa conferir o valor."""
+    from . import busca_local
+    if not busca_local.ligada():
+        _registra_falha("local: sem SEARXNG_URL, nao ha' como ler as fontes")
+        return None, []
+    consultas = _consultas_locais(prompt, max_buscas)
+    paginas = busca_local.busca_e_le(consultas, dominios)
+    print(f"  [busca local] {len(consultas)} busca(s), {len(paginas)} pagina(s) lida(s)")
+    if not paginas:
+        return None, []
+    material = "\n\n".join(f"[{i}] {p['titulo']}\nURL: {p['url']}\n{p['texto']}"
+                            for i, p in enumerate(paginas, 1))
+    instrucoes = ((sistema or "").strip() + "\n\nNesta execucao a busca JA' FOI FEITA: "
+                  "as paginas lidas estao no pedido. Use so' o que esta' nelas, e "
+                  "toda URL citada tem de ser uma delas, copiada exatamente.").strip()
+    texto = _gera_local(f"{prompt}\n\n=== PAGINAS LIDAS ===\n{material}\n=== FIM ===",
+                        instrucoes, max_tokens, False)
+    if not texto:
+        return None, []
+    citadas = [p for p in paginas if p["url"].rstrip("/") in texto]
+    # Nenhuma URL no texto: as paginas lidas sao, ainda assim, onde conferir.
+    return texto, (citadas or paginas)
 
 
 def gera_imagem(prompt: str, tamanho: str = TAMANHO_IMAGEM,

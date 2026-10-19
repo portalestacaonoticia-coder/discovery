@@ -1,0 +1,43 @@
+#!/bin/bash
+# Uma rodada do doll no Mac, com o modelo local (exo) e a busca local (SearXNG).
+# Quem chama de 30 em 30 min e' o launchd (mac/com.tihee.radar-doll.plist).
+#
+#   RADAR_MODO=ensaio   (padrao) reescreve as 10 ultimas pautas JA' publicadas
+#                       e poe cada texto ao lado do que esta' no ar, em
+#                       saida/ensaio/ (radar/ensaio_local.py). So' le o banco:
+#                       o GitHub segue dono do doll. Roda a' mao.
+#   RADAR_MODO=publicar o Mac vira dono do doll (coleta, grava e publica),
+#                       junto com RADAR_IGNORA_SITES=doll no GitHub.
+set -u
+cd "$(dirname "$0")/.." || exit 1
+
+# Uma rodada por vez: o modelo local leva minutos por post.
+TRAVA=/tmp/radar-doll.trava
+if ! mkdir "$TRAVA" 2>/dev/null; then
+  echo "$(date '+%d/%m %H:%M') rodada anterior ainda em curso — pulando"
+  exit 0
+fi
+trap 'rmdir "$TRAVA"' EXIT
+
+set -a; [ -f .env ] && . ./.env; set +a
+export RADAR_SITES=doll
+PY=.venv/bin/python
+MODO="${RADAR_MODO:-ensaio}"
+echo "=== $(date '+%d/%m/%Y %H:%M') — doll, modo $MODO ==="
+
+# Sem o exo de pe' nao adianta rodar: tudo cairia no fallback sem texto.
+if ! curl -sf -m 10 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/models" >/dev/null; then
+  echo "exo fora do ar em ${LLM_LOCAL_URL:-http://localhost:52415/v1} — nada rodou"
+  exit 0
+fi
+
+if [ "$MODO" = "publicar" ]; then
+  $PY -m radar.principal --site doll || true
+  $PY -m radar.satelites || true
+  $PY -m radar.publicar --site doll || true
+  $PY -m radar.reserva || true
+else
+  # So' leitura: mesma pauta, texto local x texto no ar, para revisar.
+  $PY -m radar.ensaio_local --site doll --limite "${RADAR_ENSAIO_LIMITE:-10}" || true
+fi
+echo "=== fim $(date '+%H:%M') ==="

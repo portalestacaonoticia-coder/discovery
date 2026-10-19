@@ -9,3 +9,7 @@ __pycache__/
 node_modules/
 .next/
 .vercel/
+
+# Mac: SearXNG com a chave secreta
+mac/searxng/settings.local.yml
+.venv/

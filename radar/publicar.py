@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 from . import llm
 from .alerta import avisa
 from .banco import Banco
-from .config import RAIZ, carrega_sites
+from .config import RAIZ, carrega_sites, filtra_sites
 from .gerador_artigo import monta
 
 SAIDA = RAIZ / "saida"
@@ -317,6 +317,7 @@ def main() -> int:
             print(f"Site '{args.site}' fora deste fluxo: {motivo}")
             return 1
         sites = {args.site: sites[args.site]}
+    sites = filtra_sites(sites)
 
     if not sites:
         print("Nenhum site no fluxo generico (precisa de 'wordpress' e nao ter 'base')")
