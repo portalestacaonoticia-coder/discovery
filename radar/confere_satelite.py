@@ -301,6 +301,44 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
                 "efeito no real invertido: quando o dolar sobe, o real perde "
                 f"valor (e vice-versa): \"{frase.strip()[:90]}\"")
 
+    # 10a. O real nos extremos do ano: na MINIMA do dolar o real esta' no
+    # ponto mais FORTE, na maxima, no mais fraco (1o satelite do Mac,
+    # 20/10/2026: "distante do nivel mais fraco registrado em maio", quando
+    # maio foi a minima do dolar).
+    mes_min = MESES[n["min_quando"].month - 1]
+    mes_max = MESES[n["max_quando"].month - 1]
+    for frase in _frases(texto):
+        # oracao por oracao, e so' o superlativo ("nivel/ponto mais fraco"):
+        # "mais forte do que no pico" e' comparativo e esta' certo
+        for oracao in re.split(r",\s*mas\b|;|,\s*e\b|,", frase):
+            sup = re.search(r"(n[ií]vel|ponto|patamar|momento)\s+mais\s+(fraco|forte)",
+                            oracao, re.I)
+            if not sup:
+                continue
+            perto_min = re.search(rf"{mes_min}|m[ií]nima", oracao, re.I)
+            perto_max = re.search(rf"{mes_max}|m[aá]xima|pico", oracao, re.I)
+            diz = sup.group(2).lower()
+            if diz == "fraco" and perto_min and not perto_max:
+                problemas.append("na minima do dolar o real esteve no ponto mais FORTE, "
+                                 f"nao no mais fraco: \"{oracao.strip()[:90]}\"")
+            if diz == "forte" and perto_max and not perto_min:
+                problemas.append("na maxima do dolar o real esteve no ponto mais FRACO, "
+                                 f"nao no mais forte: \"{oracao.strip()[:90]}\"")
+
+    # 10b. Data relativa errada para a manchete ("quarta-feira passada" para
+    # um boletim de dois meses antes).
+    if data_manchete:
+        dias = (hoje - data_manchete).days
+        m = re.search(r"\b(ontem|anteontem)\b", texto, re.I)
+        if m and dias > 2:
+            problemas.append(f"\"{m.group(0)}\": a manchete e' de {data_manchete:%d/%m}, "
+                             f"ha' {dias} dias; use a data")
+        m = re.search(r"\b(semana passada|\w+-feira passada|s[aá]bado passado|"
+                      r"domingo passado|recentemente)\b", texto, re.I)
+        if m and dias > 7:
+            problemas.append(f"\"{m.group(0)}\": a manchete e' de {data_manchete:%d/%m}, "
+                             f"ha' {dias} dias; use a data")
+
     # 10. Titulo unico: dois hubs no mesmo dia saiam com o mesmo titulo
     # (3 iguais em 10 na v4).
     meu = _normaliza(titulo)
