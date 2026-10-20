@@ -31,6 +31,19 @@ if ! curl -sf -m 10 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/models" >/dev/n
   exit 0
 fi
 
+# De pe' nao basta: em 19/10/2026 o exo respondia /models mas deixava toda
+# geracao em "Pending" ate' o prazo de 20 min (um runner parado). Uma frase
+# curta de verdade, com prazo de 2 min; sem resposta, a rodada nao comeca
+# (senao cada satelite cairia no template depois de 20 min de espera).
+TESTE=$(curl -sf -m 120 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/chat/completions" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"${LLM_LOCAL_MODELO:-mlx-community/Qwen3.8-27B-8bit}\",\"messages\":[{\"role\":\"user\",\"content\":\"Responda so: ok\"}],\"max_tokens\":20,\"enable_thinking\":false,\"stream\":false}" \
+  | "$PY" -c "import json,sys; print(json.load(sys.stdin)['choices'][0]['message']['content'].strip()[:20])" 2>/dev/null)
+if [ -z "$TESTE" ]; then
+  echo "exo de pe' mas nao gera texto (travado?) — nada rodou; reinicie o EXO nos dois Macs"
+  exit 0
+fi
+
 if [ "$MODO" = "publicar" ]; then
   $PY -m radar.principal --site doll || true
   $PY -m radar.satelites || true

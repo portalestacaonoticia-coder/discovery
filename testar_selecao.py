@@ -70,3 +70,17 @@ tarde = proximo_horario_fixa(DEZ_DA_MANHA, DEZ_DA_MANHA + timedelta(hours=12), c
 assert tarde.astimezone(SP).hour == 20, tarde
 
 print("selecao ok: pontuacao, dedup por fato, piso, criterios do editor e vagas")
+
+# corte de idade: noticia acima de idade_max_horas (72h) nao e' selecionada,
+# mesmo com dado proprio (20/10/2026: manchetes de junho a setembro)
+from radar.pontua import velha
+c72 = criterios_com_padrao(None)
+assert c72["idade_max_horas"] == 72
+assert velha((AGORA - timedelta(hours=100)).isoformat(), c72, AGORA)
+assert not velha((AGORA - timedelta(hours=10)).isoformat(), c72, AGORA)
+assert not velha(None, c72, AGORA)
+antiga = pauta(90, 190, "contexto", dado="+1,5%", horas_atras=24 * 60)
+assert seleciona([antiga], 5, None, AGORA) == []
+assert seleciona([pauta(91, 191, "contexto", dado="+1,5%", horas_atras=2)], 5, None, AGORA)
+print("corte de idade: ok")
+
