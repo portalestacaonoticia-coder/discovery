@@ -117,6 +117,15 @@ assert _primeiro_do_mes("Na quinta-feira, 1 de outubro, e em 11 de maio") == \
     "Na quinta-feira, 1º de outubro, e em 11 de maio"
 assert _primeiro_do_mes("1º de outubro") == "1º de outubro"
 
+# real nos extremos do ano (1o satelite do Mac): na minima do dolar o real
+# esteve no ponto mais forte; o comparativo "mais forte do que no pico" passa
+assert any("mais FORTE" in p for p in c("t", "O real está mais forte do que no pico de dezembro, mas distante do nível mais fraco registrado em maio."))
+assert c("t", "O real está mais forte do que no pico de dezembro.") == []
+
+# data relativa errada para manchete antiga
+assert any("passada" in p for p in confere("t", "A publicação é de quarta-feira passada.", N, "", HOJE, date(2026, 8, 26)))
+assert confere("t", "A publicação é de quarta-feira passada.", N, "", HOJE, date(2026, 10, 14)) == []
+
 # os exemplos-modelo nao podem ser aceitos com os dados de outro dia
 from radar.gerador_satelite import _exemplos
 for exemplo in _exemplos().split("====="):

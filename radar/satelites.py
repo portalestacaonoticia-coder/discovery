@@ -19,6 +19,7 @@ from .alerta import avisa
 from .banco import Banco
 from .config import RAIZ, carrega_sites, site_ativo
 from .gerador_satelite import monta
+from .pontua import criterios_com_padrao, velha
 
 SITE = "doll"
 SAIDA = RAIZ / "saida"
@@ -71,8 +72,15 @@ def main() -> int:
     # quando o slot dela chegar. Licao de 31/08: a #1093 (slot 17h) segurou a
     # vaga de indicadores e prendeu a #1117 (slot 11h) o dia inteiro.
     agora = datetime.now(FUSO_SP)
+    criterios = criterios_com_padrao((leitor.meta_do_site(SITE) or {}).get("criterios"))
     pautas, em_espera = [], 0
     for p in candidatas:
+        # pauta aprovada antes do corte de idade (ou que envelheceu esperando
+        # o horario) nao vira satelite: o gancho seria noticia velha
+        publicado = (p.get("itens") or {}).get("publicado_em")
+        if velha(publicado, criterios, agora):
+            print(f"[velha] pauta {p['id']}: noticia de {str(publicado)[:10]}, fica de fora")
+            continue
         h = p.get("horario_sugerido")
         if h:
             try:
