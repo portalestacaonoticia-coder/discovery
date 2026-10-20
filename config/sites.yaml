@@ -70,6 +70,10 @@ sites:
     # Motor Discover (radar/motor.py): as pautas sao escolhidas na tela Radar
     # (categorias + temas -> IA identifica -> voce marca e autoriza ate uma data).
     motor: discover
+    # ...mas os SATELITES do doll vem do radar antigo (fontes -> pauta com
+    # dado proprio -> selecao -> radar.satelites). Sem esta chave o motor
+    # pulava a coleta e o doll ficou sem satelite de 01 a 20/10/2026.
+    satelites_do_radar: true
 
     hubs:
       # 'imagem' = termo de busca no banco de imagens (radar/imagens.py).
