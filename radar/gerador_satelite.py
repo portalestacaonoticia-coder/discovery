@@ -16,12 +16,33 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from . import llm
-from .confere_satelite import confere
+from .confere_satelite import confere, posicao
 from .gerador_dolar import DIAS, MESES, brl, pct, _rumo
 
 FUSO_SP = timezone(timedelta(hours=-3))
+
+
+# Exemplos-modelo ("escreva assim"), mantidos por quem revisa os posts.
+EXEMPLOS = Path(__file__).resolve().parent.parent / "config" / "exemplos_satelite.md"
+
+
+def _exemplos() -> str:
+    """Os exemplos sem o comentario de cabecalho; '' se o arquivo sumir."""
+    try:
+        texto = EXEMPLOS.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    return re.sub(r"<!--.*?-->", "", texto, flags=re.S).strip()
+
+
+def _primeiro_do_mes(texto: str) -> str:
+    """'1 de outubro' -> '1º de outubro': o modelo esquecia o ordinal (3 de 10
+    na v5 do ensaio) e e' regra fixa, nao precisa de modelo."""
+    return re.sub(rf"\b1 de ({'|'.join(MESES)})\b", r"1º de \1", texto,
+                  flags=re.I)
 
 
 def _data_extenso(d) -> str:
@@ -73,6 +94,10 @@ def _variacao(serie: list[dict], pregoes: int) -> float | None:
     if len(serie) <= pregoes:
         return None
     return (serie[-1]["venda"] / serie[-1 - pregoes]["venda"] - 1) * 100
+
+
+_POSICAO_TEXTO = {"piso": "mais perto do piso", "topo": "mais perto do topo",
+                  "meio": "no meio"}
 
 
 def _numeros(serie: list[dict]) -> dict:
@@ -154,7 +179,8 @@ def _apendices(site: dict, serie: list[dict], leia_tambem: list[dict],
 
 
 def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
-               site: dict) -> tuple[dict | None, str]:
+               site: dict, titulos_recentes: list[str] | None = None
+               ) -> tuple[dict | None, str]:
     """Escreve o satelite com o gpt-5.6-luna (radar/llm.py). (None, motivo) se
     nao houver chave ou falhar — quem chama cai no template. Os guarda-corpos
     vao no prompt (gancho atribuido a fonte, corpo ancorado no dado, fecho
@@ -182,11 +208,17 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         fatos.append(f"na semana (5 pregoes) {_mov(n['var_semana'])} "
                      f"{pct(abs(n['var_semana']))}")
     if n["var_mes"] is not None:
-        fatos.append(f"no mes (21 pregoes) {_mov(n['var_mes'])} "
+        fatos.append(f"nos ultimos 21 pregoes (cerca de um mes — NAO e' o mes "
+                     f"do calendario: nao diga 'outubro', 'inicio do mes' etc.) "
+                     f"{_mov(n['var_mes'])} "
                      f"{pct(abs(n['var_mes']))}")
     if n["var_janela"] is not None:
         fatos.append(f"nos ultimos {n['n']} pregoes oscilou entre "
-                     f"{brl(n['menor'], 4)} e {brl(n['maior'], 4)}")
+                     f"{brl(n['menor'], 4)} e {brl(n['maior'], 4)} — a PTAX esta' "
+                     f"{brl(n['maior'] - n['venda'], 4)} abaixo do topo e "
+                     f"{brl(n['venda'] - n['menor'], 4)} acima do piso, ou seja, "
+                     f"{_POSICAO_TEXTO[posicao(n['venda'], n['menor'], n['maior'])]}"
+                     " da faixa")
     if n.get("seq", 0) >= 2:
         fatos.append(f"e' o {n['seq']}o pregao seguido de "
                      f"{'alta' if n['direcao'] > 0 else 'queda'}")
@@ -194,7 +226,13 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         fatos.append(
             f"nos ultimos {n['pregoes_serie']} pregoes (~1 ano): maxima de "
             f"{brl(n['max_ano'], 4)} em {n['max_quando']:%d/%m/%Y} e minima "
-            f"de {brl(n['min_ano'], 4)} em {n['min_quando']:%d/%m/%Y}")
+            f"de {brl(n['min_ano'], 4)} em {n['min_quando']:%d/%m/%Y} — a PTAX "
+            f"esta' {pct((1 - n['venda'] / n['max_ano']) * 100)} abaixo da maxima "
+            f"e {pct((n['venda'] / n['min_ano'] - 1) * 100)} acima da minima, "
+            + {"piso": "mais perto da minima do ano",
+               "topo": "mais perto da maxima do ano",
+               "meio": "no meio da faixa do ano"}[
+                   posicao(n['venda'], n['min_ano'], n['max_ano'])])
     dado = "; ".join(fatos)
 
     sistema = (
@@ -221,6 +259,17 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         "explicacao de causa que nao esteja na manchete. Descreva os numeros.\n"
         "- Se a fonte nao tiver nome, escreva 'segundo a imprensa' — nunca "
         "'o veiculo' nem placeholder.\n"
+        "- Da materia voce so' tem o TITULO: nao descreva o conteudo, a "
+        "analise, os argumentos ou o tema da reportagem alem do que o titulo "
+        "diz.\n"
+        "- 'Segundo a imprensa' / 'a X noticiou' vale SO' para o fato da "
+        "manchete. A PTAX, as variacoes, a sequencia e os extremos sao dado "
+        "NOSSO, do Banco Central: nunca os ponha na boca da imprensa, nem na "
+        "mesma frase da atribuicao.\n"
+        "- Para dar analise, use as distancias JA' CALCULADAS nos dados (ate o "
+        "topo e o piso da faixa, ate a maxima e a minima do ano) e diga o que "
+        "isso significa para quem compra dolar. Nao faca contas: todo numero "
+        "do texto tem de estar nos dados.\n"
         "- Estruture em 3-4 paragrafos com UM subtitulo markdown (##) no "
         "meio; nada de lista de topicos.\n"
         "- Termine convidando a ler a pagina-guia, com o link em markdown.\n"
@@ -248,7 +297,18 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         f"Pagina-guia para linkar no fecho: "
         + (f"[{servico}]({url_ancora})" if url_ancora
            else "(nenhuma disponivel — feche sem link)") + "\n\n"
-        "Escreva a nota.")
+        + (("\nEXEMPLOS DO ESTILO ESPERADO. Os numeros, datas e manchetes "
+             "deles sao de OUTRO dia: nunca os copie, use so' os seus dados. "
+             "Copie a atribuicao, o cuidado com os numeros e o tom — NAO copie "
+             "frases nem o formato do titulo. Escolha um jeito proprio de abrir "
+             "(pelo numero, pela manchete ou pelo que muda para quem compra) e "
+             "use a 'posicao' dos dados exatamente como vem.\n\n"
+             + _exemplos() + "\n\n") if _exemplos() else "")
+        + (("Titulos recentes do site — o seu tem de ser DIFERENTE deles, na "
+            "forma e nas palavras:\n"
+            + "\n".join(f"- {t}" for t in (titulos_recentes or [])[:10]) + "\n\n")
+           if titulos_recentes else "")
+        + "Escreva a nota.")
 
     motivo = ""
     for tentativa in (1, 2):
@@ -266,13 +326,14 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         if not isinstance(d, dict):
             motivo = "- a resposta nao foi um JSON valido {\"titulo\", \"corpo_md\"}"
             continue
-        titulo = str(d.get("titulo") or "").strip()[:110]
-        corpo = str(d.get("corpo_md") or "").strip()
+        titulo = _primeiro_do_mes(str(d.get("titulo") or "").strip()[:110])
+        corpo = _primeiro_do_mes(str(d.get("corpo_md") or "").strip())
         if not titulo or len(corpo) < 500:
             # saida pobre/rasa
             motivo = "- o texto veio sem titulo ou curto demais (minimo 250 palavras)"
             continue
-        problemas = confere(titulo, corpo, n, manchete, hoje, data_manchete)
+        problemas = confere(titulo, corpo, n, manchete, hoje, data_manchete,
+                            titulos_recentes)
         if not problemas:
             break
         motivo = "\n".join(f"- {p}" for p in problemas)
@@ -299,7 +360,8 @@ def monta(pauta: dict, serie: list[dict], url_ancora: str | None,
     """Satelite pelo gpt-5.6-luna quando ha' chave; senao, pelo template. Ambos
     respeitam os mesmos guarda-corpos (fonte atribuida, dado proprio, link)
     e ganham os apendices deterministicos: conversao do dia + Leia tambem."""
-    art, motivo = _monta_llm(pauta, serie, url_ancora, site)
+    titulos = [a["titulo"] for a in (leia_tambem or []) if a.get("titulo")]
+    art, motivo = _monta_llm(pauta, serie, url_ancora, site, titulos)
     if not art:
         art = _monta_template(pauta, serie, url_ancora, site)
         art["por"], art["motivo"] = "template", motivo

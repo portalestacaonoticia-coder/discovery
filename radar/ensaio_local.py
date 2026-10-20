@@ -25,6 +25,7 @@ from .banco import Banco
 from .config import RAIZ, carrega_sites, env
 
 PASTA = RAIZ / "saida" / "ensaio"
+_TITULOS_DA_RODADA: list[str] = []
 
 
 def pautas_publicadas(banco: Banco, site: str, limite: int) -> list[dict]:
@@ -64,7 +65,10 @@ def escreve_satelite(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dic
     url_ancora = (banco.ancora_do_hub(nome, pt.get("hub") or "cotacao")
                   or banco.ancora_do_hub(nome, "cotacao"))
     llm.limpa_falhas()
-    art = monta(pt, serie, url_ancora, site, banco.artigos_recentes(nome))
+    # titulos desta rodada contam como recentes, como na esteira (satelites.py)
+    art = monta(pt, serie, url_ancora, site,
+                [{"titulo": t} for t in _TITULOS_DA_RODADA] + banco.artigos_recentes(nome))
+    _TITULOS_DA_RODADA.insert(0, art["titulo"])
     # monta cai no TEMPLATE quando o modelo falha OU quando o conferente
     # reprova duas vezes: o rotulo vem do proprio artigo, nao das falhas do
     # llm (JSON curto ou reprovado nao registra falha nenhuma).

@@ -8,6 +8,7 @@ radar/
 ├── config/sites.yaml       ← TODA a configuracao de negocio: sites, hubs, fontes,
 │                             moldes de titulo e permissao de publicacao automatica.
 │                             Site novo se adiciona aqui, sem tocar em codigo.
+├── config/exemplos_satelite.md ← exemplos-modelo do satelite ("escreva assim"), mantidos na revisao dos posts
 ├── sql/schema.sql          ← tabelas Supabase (itens, pautas, fontes, execucoes) +
 │                             bases proprias por site (eventos, cotacoes). RLS ligado.
 ├── radar/

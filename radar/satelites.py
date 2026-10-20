@@ -111,6 +111,9 @@ def main() -> int:
         url_ancora = (leitor.ancora_do_hub(SITE, pt.get("hub") or "cotacao")
                       or leitor.ancora_do_hub(SITE, "cotacao"))
         art = monta(pt, serie, url_ancora, site, leia_tambem)
+        # o proximo satelite da rodada tambem nao pode repetir este titulo
+        # (sem url: nao entra no Leia tambem, so' na lista de titulos)
+        leia_tambem.insert(0, {"titulo": art["titulo"]})
         ref = f"satelite-{pt['id']}"
         (SAIDA / f"{SITE}-{ref}.md").write_text(art["markdown"], encoding="utf-8")
 
