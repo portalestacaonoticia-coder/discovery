@@ -160,7 +160,13 @@ def main() -> int:
                 banco.registra_execucao({
                     "fluxo": "discover", "site": nome, "status": "erro",
                     "resumo": str(erro)[:500], "inicio": inicio.isoformat()})
-            continue
+            # Site cujos satelites saem das pautas do radar (o doll) segue
+            # tambem pela coleta abaixo; os demais ficam so' no motor. O
+            # publicar.py ignora pauta sem brief nesses sites, entao as do
+            # radar so' alimentam radar.satelites.
+            if not cfg.get("satelites_do_radar"):
+                continue
+            llm.limpa_falhas()
         try:
             r = roda_site(nome, cfg, banco)
         except Exception as erro:
