@@ -8,6 +8,7 @@ radar/
 ├── config/sites.yaml       ← TODA a configuracao de negocio: sites, hubs, fontes,
 │                             moldes de titulo e permissao de publicacao automatica.
 │                             Site novo se adiciona aqui, sem tocar em codigo.
+├── config/exemplos_satelite.md ← exemplos-modelo do satelite ("escreva assim"), mantidos na revisao dos posts
 ├── sql/schema.sql          ← tabelas Supabase (itens, pautas, fontes, execucoes) +
 │                             bases proprias por site (eventos, cotacoes). RLS ligado.
 ├── radar/
@@ -56,6 +57,7 @@ radar/
 │   ├── gerador_satelite.py ← artigo-satelite: escrito pelo gpt-5.6-luna quando ha chave
 │   │                         (titulos unicos, fato atribuido a fonte, dado proprio,
 │   │                         link ancora); template como fallback.
+│   ├── confere_satelite.py ← confere por codigo o satelite do modelo (valores, direcao, datas, estilo); reprovado, reescreve 1x
 │   ├── satelites.py         ← entrypoint dos satelites: pautas com dado proprio,
 │   │                         no maximo 1 por hub/dia, respeitando horario_sugerido.
 │   │                         Roda no cron do radar (30min, todos os dias).
@@ -80,6 +82,7 @@ radar/
 ├── testar_local.py         ← teste offline do radar, com noticias simuladas
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
 ├── testar_selecao.py       ← teste offline da selecao automatica de pautas
+├── testar_conferente.py    ← teste offline do conferente do satelite (erros reais do ensaio de 19/10)
 ├── testar_llm_local.py     ← teste offline do modo local (exo + SearXNG simulados)
 ├── mac/                    ← kit do doll nos Macs: instalar.sh, rodar_doll.sh,
 │                             agendamento (launchd), SearXNG. Ver mac/LEIA-ME.md.

@@ -23,8 +23,10 @@ from datetime import datetime, timedelta, timezone
 from . import llm
 from .alerta import avisa
 from .banco import Banco
+from .confere_satelite import confere
 from .config import RAIZ, carrega_sites, site_ativo
 from .gerador_dolar import DIAS, MESES, brl, pct
+from .gerador_satelite import _numeros as numeros_satelite
 
 SITE = "doll"
 SAIDA = RAIZ / "saida"
@@ -99,18 +101,30 @@ def monta_reserva(serie: list[dict], site: dict, url_ancora: str | None,
             f"Pagina-guia para o fecho: "
             + (f"[quanto custa comprar dolar hoje]({url_ancora})" if url_ancora
                else "(nenhuma — feche sem link)") + "\n\nEscreva a nota.")
-        saida = llm.gera(prompt, sistema=sistema, max_tokens=900)
-        if saida:
-            bruto = re.search(r"\{.*\}", saida, re.S)
-            if bruto:
-                try:
-                    d = json.loads(bruto.group(0))
-                    titulo = str(d.get("titulo") or "").strip()[:110]
-                    corpo = str(d.get("corpo_md") or "").strip()
-                    if titulo and len(corpo) >= 80:
-                        via_llm = (titulo, corpo)
-                except json.JSONDecodeError:
-                    pass
+        # Conferente do satelite com os numeros DESTA nota (ensaio de
+        # 20/10/2026: "tendencia de queda para o real" quando quem caiu foi o
+        # dolar). Reprovada, reescreve 1x com a lista; de novo, template.
+        nc = {**numeros_satelite(serie), "var_janela": n["var_janela"],
+              "maior": n["maior"], "menor": n["menor"], "n": n["n"]}
+        pedido = prompt
+        for _ in range(2):
+            saida = llm.gera(pedido, sistema=sistema, max_tokens=900)
+            bruto = re.search(r"\{.*\}", saida or "", re.S)
+            try:
+                d = json.loads(bruto.group(0), strict=False) if bruto else {}
+            except json.JSONDecodeError:
+                d = {}
+            titulo = str(d.get("titulo") or "").strip()[:110] if isinstance(d, dict) else ""
+            corpo = str(d.get("corpo_md") or "").strip() if isinstance(d, dict) else ""
+            if not titulo or len(corpo) < 80:
+                continue
+            problemas = confere(titulo, corpo, nc, "", hoje, None, hoje_valido=True)
+            if not problemas:
+                via_llm = (titulo, corpo)
+                break
+            pedido = (prompt + "\n\nSua versao anterior foi REPROVADA pelo "
+                      "conferente:\n" + "\n".join(f"- {p}" for p in problemas)
+                      + "\nReescreva a nota inteira corrigindo isso.")
 
     if via_llm:
         titulo, corpo = via_llm
@@ -124,8 +138,9 @@ def monta_reserva(serie: list[dict], site: dict, url_ancora: str | None,
             f"Na referência oficial do Banco Central, a PTAX de venda "
             f"{'desta ' + DIAS[hoje.weekday()] if mesmo_dia else 'do pregão de ' + _extenso(n['data'])} "
             f"ficou em **{brl(n['venda'], 4)}**"
-            + (f", com o dólar em {mov} de {pct(abs(n['var_dia']))}."
-               if n["var_dia"] is not None else ".")
+            + ((f", com o dólar em {'alta' if n['var_dia'] > 0 else 'queda'} de "
+                f"{pct(abs(n['var_dia']))}." if abs(n["var_dia"]) >= 0.005
+                else ", com o dólar estável.") if n["var_dia"] is not None else ".")
             + (f" Nos últimos {n['n']} pregões, a moeda "
                f"{'acumula alta' if n['var_janela'] > 0 else 'acumula queda'} de "
                f"{pct(abs(n['var_janela']))}, oscilando entre {brl(n['menor'], 4)} "

@@ -25,13 +25,14 @@ from .banco import Banco
 from .config import RAIZ, carrega_sites, env
 
 PASTA = RAIZ / "saida" / "ensaio"
+_TITULOS_DA_RODADA: list[str] = []
 
 
 def pautas_publicadas(banco: Banco, site: str, limite: int) -> list[dict]:
     r = (banco.cliente.table("pautas")
          .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,pontuacao,"
                  "horario_sugerido,tipo,topico_id,brief,evidencias,"
-                 "itens(titulo,url,veiculo)")
+                 "itens(titulo,url,veiculo,publicado_em)")
          .eq("site", site).eq("status", "publicada")
          .order("selecionada_em", desc=True).limit(limite).execute())
     return list(r.data or [])
@@ -49,12 +50,12 @@ def escreve_guia(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dict | 
     if not art:
         return None, "o modelo nao escreveu (ver linhas [llm] acima)"
     ev, hub = pt.get("evidencias") or {}, pt.get("_hub") or {}
-    res = mod_checagem.checa(art, pt["brief"], ev, hub)
+    res = mod_checagem.checa(art, pt["brief"], ev, hub, site)
     if not res["aprovado"] and res["corrigivel"]:
         corrigido = corrige(art, res["estrutural"], pt["brief"], ev, site, hub)
         if corrigido:
             art = corrigido
-            res = mod_checagem.checa(art, pt["brief"], ev, hub)
+            res = mod_checagem.checa(art, pt["brief"], ev, hub, site)
     return art, ("APROVADO" if res["aprovado"] else "REPROVADO") + f" — {res['motivo']}"
 
 
@@ -64,10 +65,16 @@ def escreve_satelite(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dic
     url_ancora = (banco.ancora_do_hub(nome, pt.get("hub") or "cotacao")
                   or banco.ancora_do_hub(nome, "cotacao"))
     llm.limpa_falhas()
-    art = monta(pt, serie, url_ancora, site, banco.artigos_recentes(nome))
-    # monta cai no TEMPLATE quando o modelo falha: o ensaio precisa dizer.
-    origem = "TEMPLATE (o modelo falhou)" if llm.falhas() else "modelo local"
-    return art, f"escrito por: {origem}"
+    # titulos desta rodada contam como recentes, como na esteira (satelites.py)
+    art = monta(pt, serie, url_ancora, site,
+                [{"titulo": t} for t in _TITULOS_DA_RODADA] + banco.artigos_recentes(nome))
+    _TITULOS_DA_RODADA.insert(0, art["titulo"])
+    # monta cai no TEMPLATE quando o modelo falha OU quando o conferente
+    # reprova duas vezes: o rotulo vem do proprio artigo, nao das falhas do
+    # llm (JSON curto ou reprovado nao registra falha nenhuma).
+    if art.get("por") == "llm":
+        return art, f"escrito por: modelo local ({art.get('motivo')})"
+    return art, f"escrito por: TEMPLATE — {art.get('motivo') or 'o modelo falhou'}"
 
 
 def main() -> int:

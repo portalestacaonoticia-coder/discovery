@@ -117,6 +117,29 @@ def _prompt(ideia: dict, angulo: dict, ev: dict, hub: dict) -> str:
     return "\n".join(partes)
 
 
+_ONDE_IOF = {"cartao_credito": "nos gastos com cartao no exterior",
+             "especie": "na compra de moeda em especie"}
+
+
+def fatos_fixos(site: dict) -> list[dict]:
+    """Fatos que o site sabe por configuracao e o modelo nao pode adivinhar:
+    a aliquota de IOF do sites.yaml (ensaio de 20/10/2026: o guia saiu com
+    o 6,38% de 2020) e o que estiver em `fatos_fixos`. Entram no brief como
+    key_facts — o redator recebe o numero certo e a checagem o aceita."""
+    fatos = []
+    iof = {k: v for k, v in (site.get("iof") or {}).items() if isinstance(v, (int, float))}
+    if iof:
+        partes = [f"{v:.2f}".replace(".", ",") + "% " + _ONDE_IOF.get(k, k.replace("_", " "))
+                  for k, v in iof.items()]
+        fatos.append({"fato": "IOF vigente: " + "; ".join(partes)
+                              + " — somado ao custo, nunca descontado",
+                      "fonte_url": site.get("iof_fonte") or "https://www.gov.br/receitafederal"})
+    for f in site.get("fatos_fixos") or []:
+        if isinstance(f, dict) and f.get("fato") and f.get("fonte_url"):
+            fatos.append({"fato": str(f["fato"]).strip(), "fonte_url": str(f["fonte_url"]).strip()})
+    return fatos
+
+
 def monta_brief(ideia: dict, angulo: dict, evidencias: dict, site: dict, hub: dict) -> dict | None:
     if not llm.tem_chave():
         return None
@@ -138,6 +161,8 @@ def monta_brief(ideia: dict, angulo: dict, evidencias: dict, site: dict, hub: di
         return None
     if problemas:
         print(f"  [brief] ajustado: {'; '.join(problemas)[:200]}")
+    vistos = {f["fato"] for f in brief["key_facts"]}
+    brief["key_facts"] += [f for f in fatos_fixos(site) if f["fato"] not in vistos]
     brief["angulo"] = {k: angulo.get(k) for k in ("id", "tipo", "titulo_trabalho", "promessa",
                                                    "por_que_agora", "risco_factual")}
     # A linha editorial viaja no brief: o redator e a correcao a obedecem

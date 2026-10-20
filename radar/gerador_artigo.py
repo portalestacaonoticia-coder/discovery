@@ -194,24 +194,36 @@ def _jsonld(titulo: str, resumo: str, site: dict, hub: dict) -> str:
     }, ensure_ascii=False, indent=2)
 
 
-def _le_json_artigo(saida: str | None) -> tuple[str, str, str] | None:
-    """(titulo, corpo, resumo) do JSON do modelo, ou None se nao serve."""
-    if not saida:
+def _le_json_artigo(saida: str | None, motivo: list | None = None
+                    ) -> tuple[str, str, str] | None:
+    """(titulo, corpo, resumo) do JSON do modelo, ou None se nao serve. O
+    porque vai em `motivo` (lista), para quem chama registrar — antes a falha
+    era muda (2 de 7 guias no ensaio local de 20/10/2026)."""
+    def falha(porque: str):
+        if motivo is not None:
+            motivo.append(porque)
         return None
+
+    if not saida:
+        return falha("o modelo nao respondeu")
     bruto = re.search(r"\{.*\}", saida, re.S)
     if not bruto:
-        return None
+        return falha("resposta sem JSON")
     try:
-        d = json.loads(bruto.group(0))
-    except json.JSONDecodeError:
-        return None
+        # strict=False: quebra de linha crua dentro do corpo_md e' comum no
+        # modelo local e nao invalida o artigo.
+        d = json.loads(bruto.group(0), strict=False)
+    except json.JSONDecodeError as erro:
+        return falha(f"JSON invalido ({erro.msg})")
+    if not isinstance(d, dict):
+        return falha("JSON sem objeto")
     titulo = str(d.get("titulo") or "").strip()[:110]
     corpo = str(d.get("corpo_md") or "").strip()
     resumo = str(d.get("resumo") or "").strip()[:280]
     # Portao de qualidade: guia curto demais nao resolve nada e nao deveria
     # ocupar uma vaga do dia. Cai fora em vez de virar post raso.
     if not titulo or len(corpo) < 1200:
-        return None
+        return falha(f"sem titulo ou corpo curto ({len(corpo)} caracteres)")
     if not resumo:
         resumo = corpo.split("\n\n")[0][:280]
     return titulo, corpo, resumo
@@ -277,10 +289,16 @@ def monta_do_brief(brief: dict, evidencias: dict, site: dict, hub: dict) -> dict
     pesquisa ja' foi feita. Devolve o mesmo formato de `monta`."""
     if not llm.tem_chave():
         return None
-    saida = llm.gera(_prompt_brief(brief, evidencias), sistema=_sistema_brief(site, hub, brief),
-                     max_tokens=5000)
-    lido = _le_json_artigo(saida)
+    lido, motivo = None, []
+    for _ in range(2):   # a falha de formato e' intermitente: 1 nova chance
+        saida = llm.gera(_prompt_brief(brief, evidencias),
+                         sistema=_sistema_brief(site, hub, brief),
+                         max_tokens=5000, json_obj=True)
+        lido = _le_json_artigo(saida, motivo)
+        if lido:
+            break
     if not lido:
+        llm._registra_falha("guia: " + " / ".join(motivo))
         return None
     titulo, corpo, resumo = lido
     titulo = brief.get("discover_headline") or titulo

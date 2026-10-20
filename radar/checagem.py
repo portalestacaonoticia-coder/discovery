@@ -34,6 +34,14 @@ NUMERO = re.compile(r"(?<![\w.])(R\$\s?\d[\d.,]*|\d+(?:[.,]\d+)?\s?%|\d{1,2}/\d{
                     r"\b(?:19|20)\d{2}\b|\b\d+(?:[.,]\d+)?\s?(?:mil|milh[oõ]es|bilh[oõ]es|dias|"
                     r"horas|anos|meses|km|kg|g|ml|minutos)\b)")
 URL = re.compile(r"\((https?://[^)\s]+)\)")
+LINK_MD = re.compile(r"\[[^\]]*\]\((https?://[^)\s]+)\)")
+# IOF (ensaio dos guias de 20/10/2026: o Qwen escreveu 6,38%, dado de 2020,
+# e "conta global sem IOF"). A aliquota vem do sites.yaml, nunca do modelo.
+IOF_PCT = re.compile(r"\bIOF\b[^.%\n]{0,40}?(\d+(?:[.,]\d+)?)\s?%|"
+                     r"(\d+(?:[.,]\d+)?)\s?%\s(?:de\s)?(?:de\s)?IOF\b", re.I)
+IOF_ISENTO = re.compile(r"(sem|isen\w*|livre\w* de|zer\w*|reduz\w*|menor|mais baix\w*|"
+                        r"descont\w*)\s(?:\w+\s){0,3}?(?:o\s|do\s|de\s)?IOF\b|"
+                        r"\bIOF\s(?:\w+\s){0,2}?(menor|reduzid\w*|zero|isent\w*|descontad\w*)", re.I)
 
 
 def _tokens(t: str) -> set[str]:
@@ -46,10 +54,36 @@ def _numeros(texto: str) -> list[str]:
 
 
 def _norm_num(n: str) -> str:
-    return re.sub(r"\s+", "", n.lower().replace(".", "").replace(",", "."))
+    """'3,50%' e '3,5%' sao o mesmo numero; '1.000' vira '1000'."""
+    n = re.sub(r"\s+", "", n.lower().replace(".", "").replace(",", "."))
+    return re.sub(r"(\.\d*?)0+(?=\D|$)", r"\1", n).replace(".%", "%").rstrip(".")
 
 
-def checa_estrutura(artigo: dict, brief: dict, evidencias: dict, hub: dict) -> list[str]:
+def aliquotas_iof(site: dict | None) -> list[float]:
+    return [float(v) for v in ((site or {}).get("iof") or {}).values()
+            if isinstance(v, (int, float))]
+
+
+def checa_iof(texto: str, site: dict | None) -> list[str]:
+    """Todo IOF do texto e' a aliquota vigente do site, e nada de 'sem IOF'."""
+    vigentes = aliquotas_iof(site)
+    if not vigentes:
+        return []
+    certo = "/".join(f"{v:.2f}".replace(".", ",") + "%" for v in sorted(set(vigentes)))
+    problemas = []
+    for m in IOF_PCT.finditer(texto or ""):
+        bruto = m.group(1) or m.group(2)
+        if not any(abs(float(bruto.replace(",", ".")) - v) < 0.005 for v in vigentes):
+            problemas.append(f"IOF de {bruto}% errado: o vigente e' {certo}")
+    m = IOF_ISENTO.search(texto or "")
+    if m:
+        problemas.append(f"IOF \"{m.group(0)}\": nao ha' IOF menor, isento ou "
+                         f"descontado nesses meios; o vigente e' {certo}, somado ao custo")
+    return list(dict.fromkeys(problemas))
+
+
+def checa_estrutura(artigo: dict, brief: dict, evidencias: dict, hub: dict,
+                    site: dict | None = None) -> list[str]:
     problemas: list[str] = []
     titulo = artigo.get("titulo") or ""
     corpo = artigo.get("corpo_md") or artigo.get("markdown") or ""
@@ -79,7 +113,11 @@ def checa_estrutura(artigo: dict, brief: dict, evidencias: dict, hub: dict) -> l
         permitidos |= {_norm_num(n) for n in _numeros(f.get("fato") or "")}
     for f in (evidencias.get("fatos") or []):
         permitidos |= {_norm_num(n) for n in _numeros(f"{f.get('afirmacao') or ''} {f.get('valor') or ''}")}
-    soltos = sorted({n for n in _numeros(corpo_sem_fontes) if _norm_num(n) not in permitidos})
+    # O texto dos links internos ("Dolar fecha em R$ 5,0564...") e' titulo de
+    # post do proprio site, nao afirmacao do guia: fica fora da contagem
+    # (reprovou 3 de 5 guias no ensaio de 20/10, inclusive o unico limpo).
+    so_texto = LINK_MD.sub("", corpo_sem_fontes)
+    soltos = sorted({n for n in _numeros(so_texto) if _norm_num(n) not in permitidos})
     if soltos:
         problemas.append("numero(s) sem fato no brief: " + ", ".join(soltos[:6]))
 
@@ -92,6 +130,7 @@ def checa_estrutura(artigo: dict, brief: dict, evidencias: dict, hub: dict) -> l
 
     if SEM_FONTE.search(corpo_sem_fontes):
         problemas.append("afirmacao vaga sem fonte (\"segundo especialistas\")")
+    problemas += checa_iof(f"{titulo}\n{so_texto}", site)
     return problemas
 
 
@@ -116,14 +155,16 @@ def checa_ia(artigo: dict, brief: dict, evidencias: dict) -> dict | None:
     prompt = (f"MANCHETE: {artigo.get('titulo')}\nPROMESSA (brief): {brief.get('dek')}\n"
               f"ANGULO: {brief.get('main_angle')}\nFATOS PERMITIDOS:\n{fatos}\n\n"
               f"ARTIGO:\n{(artigo.get('corpo_md') or artigo.get('markdown') or '')[:12000]}\n\nAvalie.")
-    saida = llm.gera(prompt, sistema=_sistema_qa(), max_tokens=1200, json_obj=True)
-    if not saida:
-        return None
-    bruto = re.search(r"\{.*\}", saida, re.S)
-    try:
-        d = json.loads(bruto.group(0)) if bruto else None
-    except json.JSONDecodeError:
-        d = None
+    d = None
+    for _ in range(2):   # JSON falho e' intermitente no modelo local: 1 nova chance
+        saida = llm.gera(prompt, sistema=_sistema_qa(), max_tokens=1200, json_obj=True)
+        bruto = re.search(r"\{.*\}", saida or "", re.S)
+        try:
+            d = json.loads(bruto.group(0), strict=False) if bruto else None
+        except json.JSONDecodeError:
+            d = None
+        if isinstance(d, dict):
+            break
     if not isinstance(d, dict):
         return None
     fc = d.get("factcheck") if isinstance(d.get("factcheck"), dict) else {}
@@ -140,11 +181,12 @@ def checa_ia(artigo: dict, brief: dict, evidencias: dict) -> dict | None:
 
 
 CORRIGIVEIS = ("numero(s) sem fato", "subtitulos H2", "link(s) fora", "afirmacao vaga",
-               "palavras", "H1 repetido")
+               "palavras", "H1 repetido", "IOF")
 
 
-def checa(artigo: dict, brief: dict, evidencias: dict, hub: dict) -> dict:
-    estrutural = checa_estrutura(artigo, brief, evidencias, hub)
+def checa(artigo: dict, brief: dict, evidencias: dict, hub: dict,
+          site: dict | None = None) -> dict:
+    estrutural = checa_estrutura(artigo, brief, evidencias, hub, site)
     qa = checa_ia(artigo, brief, evidencias)
     motivos: list[str] = list(estrutural)
     if qa is None:
