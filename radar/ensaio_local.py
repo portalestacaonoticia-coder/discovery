@@ -50,12 +50,12 @@ def escreve_guia(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dict | 
     if not art:
         return None, "o modelo nao escreveu (ver linhas [llm] acima)"
     ev, hub = pt.get("evidencias") or {}, pt.get("_hub") or {}
-    res = mod_checagem.checa(art, pt["brief"], ev, hub)
+    res = mod_checagem.checa(art, pt["brief"], ev, hub, site)
     if not res["aprovado"] and res["corrigivel"]:
         corrigido = corrige(art, res["estrutural"], pt["brief"], ev, site, hub)
         if corrigido:
             art = corrigido
-            res = mod_checagem.checa(art, pt["brief"], ev, hub)
+            res = mod_checagem.checa(art, pt["brief"], ev, hub, site)
     return art, ("APROVADO" if res["aprovado"] else "REPROVADO") + f" — {res['motivo']}"
 
 

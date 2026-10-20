@@ -13,3 +13,4 @@ node_modules/
 # Mac: SearXNG com a chave secreta
 mac/searxng/settings.local.yml
 .venv/
+saida/llm-falhas/

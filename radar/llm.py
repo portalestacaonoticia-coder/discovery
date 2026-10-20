@@ -231,6 +231,22 @@ def tira_raciocinio(texto: str) -> str:
     return texto.strip()
 
 
+def _guarda_resposta(texto: str) -> str:
+    """Salva a resposta que nao virou JSON em saida/llm-falhas/ para ver o
+    porque (a falha e' intermitente: 2 de 8 guias em 20/10/2026, e a mesma
+    chamada repetida saiu valida). Devolve o sufixo para o log."""
+    try:
+        from datetime import datetime
+        from .config import RAIZ
+        pasta = RAIZ / "saida" / "llm-falhas"
+        pasta.mkdir(parents=True, exist_ok=True)
+        arquivo = pasta / f"{datetime.now():%Y%m%d-%H%M%S-%f}.txt"
+        arquivo.write_text(texto or "", encoding="utf-8")
+        return f" (resposta em saida/llm-falhas/{arquivo.name})"
+    except OSError:
+        return ""
+
+
 def extrai_json(texto: str) -> str | None:
     """O objeto JSON de uma resposta que pode vir com texto em volta ou
     dentro de ```json```. Devolve o JSON como texto, ou None se nao houver
@@ -240,10 +256,12 @@ def extrai_json(texto: str) -> str | None:
         return None
     bruto = texto[inicio:fim + 1]
     try:
-        json.loads(bruto)
+        # strict=False aceita quebra de linha crua dentro das strings (o Qwen
+        # faz isso no corpo do guia); devolve re-serializado, entao quem
+        # chama pode fazer json.loads normal.
+        return json.dumps(json.loads(bruto, strict=False), ensure_ascii=False)
     except json.JSONDecodeError:
         return None
-    return bruto
 
 
 def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
@@ -291,7 +309,8 @@ def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
     if json_obj:
         bruto = extrai_json(texto)
         if bruto is None:
-            _registra_falha("local: modelo nao devolveu JSON valido")
+            _registra_falha("local: modelo nao devolveu JSON valido"
+                            + _guarda_resposta(texto))
             return None
         texto = bruto
     return texto or None

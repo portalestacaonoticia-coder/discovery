@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from urllib.parse import urlparse
 
 from . import llm
@@ -53,6 +54,56 @@ def _dominios_do_hub(hub: dict) -> list[str]:
     return dominios
 
 
+def _prefixos_do_hub(hub: dict) -> list[str]:
+    """Onde um FATO pode nascer: host + caminho de cada fonte oficial
+    ('gov.br/receitafederal'). A busca filtra por host (a API so' aceita
+    host), mas fato de 'gov.br/procon-mt' nao e' da Receita (ensaio de
+    20/10/2026: o IOF de 6,38% veio de uma pagina do Procon-MT)."""
+    prefixos = []
+    for f in _fontes_do_hub(hub):
+        u = urlparse(f["url"])
+        prefixo = ((u.netloc or "").lower().removeprefix("www.") + u.path).rstrip("/")
+        if prefixo and prefixo not in prefixos:
+            prefixos.append(prefixo)
+    for d in hub.get("pesquisa") or []:
+        d = str(d).strip().lower().removeprefix("https://").removeprefix("http://")
+        d = d.removeprefix("www.").rstrip("/")
+        if d and d not in prefixos:
+            prefixos.append(d)
+    return prefixos
+
+
+def _dentro(url: str, prefixos: list[str]) -> bool:
+    u = urlparse(url or "")
+    alvo = ((u.netloc or "").lower().removeprefix("www.") + u.path).rstrip("/")
+    for p in prefixos:
+        host, _, caminho = p.partition("/")
+        alvo_host, _, alvo_caminho = alvo.partition("/")
+        if not (alvo_host == host or alvo_host.endswith("." + host)):
+            continue
+        if not caminho or alvo_caminho == caminho or alvo_caminho.startswith(caminho + "/"):
+            return True
+    return False
+
+
+_ANO = re.compile(r"\b(20\d{2})\b")
+
+
+def _recente(fato: dict, citacoes: list[dict], hoje=None) -> bool:
+    """Fato de pagina velha nao entra: o ano mais recente citado no `data` do
+    fato (ou, no modo local, no texto da pagina lida) tem de ser deste ano
+    ou do anterior. Sem ano nenhum, passa — nao ha' como saber."""
+    ano_atual = (hoje or datetime.now()).year
+    anos = [int(a) for a in _ANO.findall(str(fato.get("data") or ""))]
+    if not anos:
+        url = str(fato.get("fonte_url") or "").strip().rstrip("/")
+        pagina = next((c for c in citacoes if c.get("texto")
+                       and c["url"].rstrip("/") == url), None)
+        if pagina:
+            anos = [int(a) for a in _ANO.findall(pagina["texto"]) if int(a) <= ano_atual]
+    return not anos or max(anos) >= ano_atual - 1
+
+
 def _busca(site: dict, hub: dict) -> list[str]:
     """Dominios da busca, ou [] se ela esta' desligada: hub sem fontes, ou
     `pesquisa: false` no site."""
@@ -65,14 +116,14 @@ def _dominio(url: str) -> str:
     return (urlparse(url or "").netloc or "").lower().removeprefix("www.")
 
 
-def _fato_confiavel(fato: dict, citacoes: list[dict], dominios: list[str]) -> bool:
+def _fato_confiavel(fato: dict, citacoes: list[dict], dominios: list[str],
+                    prefixos: list[str] | None = None) -> bool:
+    """O fato aponta para dentro de uma fonte oficial (host + caminho). Ser
+    pagina citada nao basta: a busca por host traz qualquer *.gov.br."""
     url = str(fato.get("fonte_url") or "").strip()
     if not url.startswith("http"):
         return False
-    if any(url.rstrip("/") == c["url"].rstrip("/") for c in citacoes):
-        return True
-    host = _dominio(url)
-    return any(host == d or host.endswith("." + d) for d in dominios)
+    return _dentro(url, prefixos if prefixos is not None else dominios)
 
 
 _NUMERO = re.compile(r"\d+(?:[.,]\d+)*")
@@ -155,8 +206,9 @@ def pesquisa(ideia: dict, angulo: dict, nome: str, site: dict, hub: dict, banco)
             dados = {}
         for f in (dados.get("fatos") or []) if isinstance(dados, dict) else []:
             if (isinstance(f, dict) and f.get("afirmacao")
-                    and _fato_confiavel(f, citacoes, dominios)
-                    and _valor_lido(f, citacoes)):
+                    and _fato_confiavel(f, citacoes, dominios, _prefixos_do_hub(hub))
+                    and _valor_lido(f, citacoes)
+                    and _recente(f, citacoes)):
                 fatos.append({
                     "afirmacao": str(f["afirmacao"]).strip()[:400],
                     "valor": str(f.get("valor") or "").strip()[:120],

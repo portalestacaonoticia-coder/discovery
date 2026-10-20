@@ -106,6 +106,15 @@ sites:
       cartao_credito: 3.50
       especie: 3.50
 
+    # Fatos que o guia recebe prontos (radar/brief.py, fatos_fixos), junto com
+    # o IOF acima. No ensaio local de 20/10/2026 o modelo inventou a origem e o
+    # horario da PTAX e a regra de conversao do cartao. CONFERIR se mudar.
+    fatos_fixos:
+      - fato: "A PTAX e' calculada pelo Banco Central como a media de quatro consultas aos dealers de cambio feitas ao longo do proprio dia e e' divulgada no mesmo dia, por volta das 13h"
+        fonte_url: https://www.bcb.gov.br
+      - fato: "Compras no cartao de credito no exterior sao convertidas para reais pela cotacao do dia do gasto, regra do Banco Central em vigor desde 2020"
+        fonte_url: https://www.bcb.gov.br
+
     moldes:
       servico: "{fato}: quanto custa e o que fazer agora"
       contagem: "{fato}: {dado_curto}"

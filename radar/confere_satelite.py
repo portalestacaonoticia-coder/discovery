@@ -124,7 +124,8 @@ _RE_REAL_DESCE = re.compile(r"(negativ\w*|desfavor[aá]vel|ruim) (para|ao) o? ?r
 
 def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
             data_manchete: date | None,
-            titulos_recentes: list[str] | None = None) -> list[str]:
+            titulos_recentes: list[str] | None = None,
+            hoje_valido: bool = False) -> list[str]:
     texto = f"{titulo}\n{corpo}"
     problemas: list[str] = []
 
@@ -178,7 +179,9 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
     validas = {n["data"], n["max_quando"], n["min_quando"]}
     if data_manchete:
         validas.add(data_manchete)
-    if hoje in (n["data"], data_manchete):
+    # a nota-reserva PODE dizer o dia de hoje ("como hoje e' domingo..."),
+    # desde que nao cole o numero da PTAX nele (regra 7, abaixo)
+    if hoje in (n["data"], data_manchete) or hoje_valido:
         validas.add(hoje)
     dias_validos = {d.day for d in validas}
     for m in _RE_DATA_EXT.finditer(texto):
@@ -238,12 +241,15 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
 
     # 7. Data da manchete junto de dado nosso: o fechamento e' do pregao, nao
     # do dia da noticia (26641 da v3: "a PTAX de 5 de agosto").
-    if data_manchete and data_manchete != n["data"]:
-        marcas = [rf"\b{data_manchete.day}º?\s+de\s+{MESES[data_manchete.month - 1]}\b",
-                  rf"\b{data_manchete.day:02d}/{data_manchete.month:02d}\b",
-                  rf"\b{data_manchete.day}/{data_manchete.month}\b"]
-        if DIAS[data_manchete.weekday()] != DIAS[n["data"].weekday()]:
-            marcas.append(rf"\b{DIAS[data_manchete.weekday()]}\b")
+    alheias = [d for d in (data_manchete, hoje if hoje_valido else None)
+               if d and d != n["data"]]
+    if alheias:
+        marcas = []
+        for d in alheias:
+            marcas += [rf"\b{d.day}º?\s+de\s+{MESES[d.month - 1]}\b",
+                       rf"\b{d.day:02d}/{d.month:02d}\b", rf"\b{d.day}/{d.month}\b"]
+            if DIAS[d.weekday()] != DIAS[n["data"].weekday()]:
+                marcas.append(rf"\b{DIAS[d.weekday()]}\b")
         nossos_brl = base + distancias
         nossos_pct = proprios_pct + pct_distancias
         for frase in _frases(texto):

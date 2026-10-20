@@ -181,13 +181,13 @@ def roda_site(nome: str, site: dict, banco: Banco, args) -> dict:
             from .gerador_artigo import corrige
             hub_cfg = pt.get("_hub") or {}
             ev = pt.get("evidencias") or {}
-            checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg)
+            checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg, site)
             if not checagem_resultado["aprovado"] and checagem_resultado["corrigivel"]:
                 print(f"  [checagem] corrigindo: {checagem_resultado['motivo'][:120]}")
                 corrigido = corrige(art, checagem_resultado["estrutural"], pt["brief"], ev, site, hub_cfg)
                 if corrigido:
                     art = corrigido
-                    checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg)
+                    checagem_resultado = mod_checagem.checa(art, pt["brief"], ev, hub_cfg, site)
             print(f"  [checagem] {checagem_resultado['motivo'][:160]}")
             if not checagem_resultado["aprovado"]:
                 (SAIDA / f"{nome}-{ref}-reprovado.md").write_text(art["markdown"], encoding="utf-8")
