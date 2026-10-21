@@ -73,14 +73,35 @@ def escreve_satelite(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dic
     # reprova duas vezes: o rotulo vem do proprio artigo, nao das falhas do
     # llm (JSON curto ou reprovado nao registra falha nenhuma).
     if art.get("por") == "llm":
-        return art, f"escrito por: modelo local ({art.get('motivo')})"
+        return art, (f"escrito por: modelo local ({art.get('motivo')}; "
+                     f"dado: {art.get('dado')})")
     return art, f"escrito por: TEMPLATE — {art.get('motivo') or 'o modelo falhou'}"
+
+
+def pautas_do_hub(banco: Banco, site: str, hub: str, limite: int) -> list[dict]:
+    """Pautas recentes de UMA categoria (qualquer status, sem brief), uma por
+    noticia: o ensaio do dado proprio por categoria (21/10/2026) precisa de
+    pautas de indicadores/politica/viagem, que quase nunca chegaram a sair."""
+    r = (banco.cliente.table("pautas")
+         .select("id,item_id,angulo,hub,titulo_sug,dado_proprio,pontuacao,"
+                 "horario_sugerido,tipo,topico_id,brief,evidencias,"
+                 "itens(titulo,url,veiculo,publicado_em)")
+         .eq("site", site).eq("hub", hub).is_("brief", "null")
+         .order("id", desc=True).limit(limite * 8).execute())
+    vistas, uteis = set(), []
+    for pt in r.data or []:
+        if pt.get("item_id") in vistas:
+            continue
+        vistas.add(pt.get("item_id"))
+        uteis.append(pt)
+    return uteis[:limite]
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Ensaio do modelo local sobre pautas ja' publicadas")
     p.add_argument("--site", default="doll")
     p.add_argument("--limite", type=int, default=10)
+    p.add_argument("--hub", help="ensaia pautas de UMA categoria (qualquer status)")
     args = p.parse_args()
 
     site = carrega_sites().get(args.site)
@@ -93,7 +114,8 @@ def main() -> int:
     banco = Banco(seco=False)     # so' leitura: nada abaixo grava
     PASTA.mkdir(parents=True, exist_ok=True)
 
-    pautas = pautas_publicadas(banco, args.site, args.limite)
+    pautas = (pautas_do_hub(banco, args.site, args.hub, args.limite) if args.hub
+              else pautas_publicadas(banco, args.site, args.limite))
     modelo = env("LLM_LOCAL_MODELO") or llm.MODELO_LOCAL_PADRAO
     print(f"{len(pautas)} pauta(s) publicada(s) para reescrever com {modelo}")
     for n, pt in enumerate(pautas, 1):

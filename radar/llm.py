@@ -266,6 +266,25 @@ def extrai_json(texto: str) -> str | None:
 
 def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
                 json_obj: bool) -> str | None:
+    """Chama o exo e, se a resposta vier VAZIA (sem erro, sem texto), tenta
+    de novo uma vez. Em 20-21/10/2026 o exo devolveu conteudo vazio 4 vezes
+    (duas rodadas pedindo texto ao mesmo tempo) e o satelite caia no template
+    sem nenhuma falha registrada."""
+    global _ultima_vazia
+    for _ in range(2):
+        _ultima_vazia = False
+        texto = _gera_local_1x(prompt, sistema, max_tokens, json_obj)
+        if texto or not _ultima_vazia:
+            return texto
+    _registra_falha("local: o exo devolveu resposta vazia (2x)")
+    return None
+
+
+_ultima_vazia = False
+
+
+def _gera_local_1x(prompt: str, sistema: str | None, max_tokens: int,
+                   json_obj: bool) -> str | None:
     """Uma chamada ao exo (/v1/chat/completions). Mesmo contrato de `gera`:
     texto ou None, com a falha registrada."""
     base = (env("LLM_LOCAL_URL") or "").rstrip("/")
@@ -306,6 +325,10 @@ def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
         _registra_falha("local: resposta incompleta (max_tokens)")
         return None
     texto = tira_raciocinio(texto)
+    if not texto.strip():
+        global _ultima_vazia
+        _ultima_vazia = True
+        return None
     if json_obj:
         bruto = extrai_json(texto)
         if bruto is None:
