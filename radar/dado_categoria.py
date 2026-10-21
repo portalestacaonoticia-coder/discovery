@@ -101,6 +101,64 @@ def _indicadores(n: dict, hoje: date) -> dict | None:
                      "'ao mercado'. Diga o que significa para quem vai comprar dolar.")}
 
 
+# Meta de inflacao do CMN (meta continua desde 2025): centro de 3% e
+# tolerancia de 1,5 ponto. CONFERIR se o CMN mudar.
+META_INFLACAO = 3.0
+TOLERANCIA_INFLACAO = 1.5
+
+
+def _inflacao(n: dict, hoje: date) -> dict | None:
+    """2o recorte de indicadores (21/10/2026): o assunto e' a INFLACAO, nao o
+    cambio — o 1o recorte fala do Focus do dolar."""
+    mes = bcb.ipca_mes(hoje)
+    ipca = bcb.ipca_12m(hoje)
+    if not (mes and ipca):
+        return None
+    ano = hoje.year if hoje.month < 12 else hoje.year + 1
+    f_ano = bcb.focus("IPCA", ano, hoje)
+    f_prox = bcb.focus("IPCA", ano + 1, hoje)
+    teto = META_INFLACAO + TOLERANCIA_INFLACAO
+    ex = _extras()
+    nome_mes = MESES[mes["referencia"].month - 1]
+    fatos = [f"IPCA (IBGE) de {nome_mes} de {mes['referencia'].year}: {pct(mes['valor'])} "
+             f"no mes (em {MESES[mes['referencia_anterior'].month - 1]}: "
+             f"{pct(mes['anterior'])})",
+             f"IPCA acumulado em 12 meses ate' {MESES[ipca['referencia'].month - 1]}: "
+             f"{pct(ipca['valor'])}",
+             f"meta de inflacao do Conselho Monetario Nacional: {pct(META_INFLACAO)} "
+             f"(centro), com tolerancia de 1,5 ponto percentual — teto de {pct(teto)}; "
+             f"o acumulado em 12 meses esta' "
+             f"{'ACIMA' if ipca['valor'] > teto else 'DENTRO'} do intervalo da meta"
+             + ("" if ipca["valor"] > teto else
+                f" ({'acima' if ipca['valor'] > META_INFLACAO else 'abaixo'} do centro)")]
+    ex["pct"] += [mes["valor"], mes["anterior"], ipca["valor"], META_INFLACAO,
+                  TOLERANCIA_INFLACAO, teto]
+    ex["variacoes_outras"][f"o IPCA de {nome_mes}"] = mes["valor"]
+    if f_ano:
+        leitura = ""
+        if f_ano.get("mediana_antes") is not None:
+            d = f_ano["mediana"] - f_ano["mediana_antes"]
+            leitura = (f" (4 semanas antes: {pct(f_ano['mediana_antes'])} — o mercado passou "
+                       f"a esperar inflacao {'MAIOR' if d > 0 else 'MENOR'} em {ano})"
+                       if abs(d) > 1e-9 else f" (igual a 4 semanas antes)")
+            ex["pct"] += [f_ano["mediana_antes"]]
+        fatos.append(f"Focus (dados de {f_ano['data']:%d/%m}): IPCA esperado para {ano} = "
+                     f"{pct(f_ano['mediana'])}{leitura}")
+        ex["pct"] += [f_ano["mediana"]]
+        ex["datas"] += [f_ano["data"]]
+    if f_prox:
+        fatos.append(f"Focus: IPCA esperado para {ano + 1} = {pct(f_prox['mediana'])}")
+        ex["pct"] += [f_prox["mediana"]]
+    fatos.append(_ptax_contexto(n))
+    return {"tema": "a inflacao (IPCA) e o que o mercado espera para ela",
+            "fatos": fatos, "extras": ex, "about": "Inflação (IPCA)", "exemplos": "indicadores-inflacao",
+            "foco": ("O assunto e' a INFLACAO: o IPCA do mes, o acumulado em 12 meses "
+                     "frente a meta e o que o mercado espera (Focus). Pode explicar, em "
+                     "termos gerais, que dolar mais caro tende a encarecer importados e "
+                     "viagens, SEM dizer que o cambio explica o indice do mes. Nao "
+                     "invente causa da inflacao nem decisao futura do Copom.")}
+
+
 def _politica(n: dict, hoje: date) -> dict | None:
     selic = bcb.selic_meta(hoje)
     if not selic:
@@ -149,8 +207,8 @@ def _politica(n: dict, hoje: date) -> dict | None:
                      "data de reuniao do Copom nem decisao futura.")}
 
 
-def _viagem(n: dict, site: dict, hoje: date) -> dict | None:
-    codigo = bcb.moeda_do_dia(hoje)
+def _viagem(n: dict, site: dict, hoje: date, recorte: int = 0) -> dict | None:
+    codigo = bcb.moeda_do_dia(hoje, recorte)
     m = bcb.moeda(codigo, hoje)
     if not m:
         return None
@@ -165,7 +223,7 @@ def _viagem(n: dict, site: dict, hoje: date) -> dict | None:
              f"{_mov(m['var_30d'])} {pct(abs(m['var_30d']))} (era {brl(m['venda_30d'], 4)}),"
              f" oscilando entre {brl(m['menor_30d'], 4)} e {brl(m['maior_30d'], 4)} "
              f"NESSE MES (nao e' a minima/maxima do ano)",
-             f"1.000 {m['nome']}s pela PTAX = {brl(custo)}; com IOF de "
+             f"1.000 {m['plural']} pela PTAX = {brl(custo)}; com IOF de "
              f"{pct(iof)} (cartao ou especie) = {brl(custo_iof)} — sem contar o "
              f"spread de bancos e casas de cambio"]
     ex["brl"] += [m["venda"], m["venda_30d"], m["menor_30d"], m["maior_30d"],
@@ -180,19 +238,21 @@ def _viagem(n: dict, site: dict, hoje: date) -> dict | None:
             "fatos": fatos, "extras": ex, "about": f"Cotação do {m['nome']}",
             "foco": (f"O assunto e' o {m['nome'].upper()} para quem vai viajar: a "
                      f"cotacao do dia, a variacao em cerca de um mes e quanto custam "
-                     f"1.000 {m['nome']}s com IOF. A manchete e' so' o gancho (pode "
+                     f"1.000 {m['plural']} com IOF. A manchete e' so' o gancho (pode "
                      f"ser sobre o dolar): ligue-a ao {m['nome']} sem inventar "
                      f"relacao de causa. Nao chame a PTAX de 'cotacao turismo'.")}
 
 
-def dado(hub: str, n: dict, site: dict, hoje: date) -> dict | None:
+def dado(hub: str, n: dict, site: dict, hoje: date, recorte: int = 0) -> dict | None:
+    """recorte = quantos satelites da categoria ja' sairam hoje (0 ou 1): o 2o
+    do dia usa outro dado — inflacao em indicadores, 2a moeda em viagem."""
     try:
         if hub == "indicadores":
-            return _indicadores(n, hoje)
+            return _inflacao(n, hoje) if recorte else _indicadores(n, hoje)
         if hub == "politica-monetaria":
             return _politica(n, hoje)
         if hub == "viagem":
-            return _viagem(n, site, hoje)
+            return _viagem(n, site, hoje, recorte)
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         return None
     return None

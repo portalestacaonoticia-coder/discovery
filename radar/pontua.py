@@ -40,6 +40,10 @@ PADRAO = {
     # 20/10/2026 saíram 5 no mesmo minuto (pautas "quentes" saem na hora),
     # 59% de texto igual entre si: padrao de conteudo em escala.
     "intervalo_min_minutos": 90,
+    # teto por categoria que vence satelites_por_hub (21/10/2026): viagem e
+    # indicadores tem 2o recorte proprio (2a moeda; inflacao), as outras nao.
+    # Ex.: {"viagem": 2, "indicadores": 2}. Vazio = vale satelites_por_hub.
+    "satelites_por_hub_detalhe": {},
 }
 
 
@@ -51,7 +55,9 @@ def criterios_com_padrao(criterios: dict | None) -> dict:
     c["angulos"] = dict(PADRAO["angulos"])
     c["frescor"] = dict(PADRAO["frescor"])
     c["janela"] = dict(PADRAO["janela"])
+    c["satelites_por_hub_detalhe"] = dict(PADRAO["satelites_por_hub_detalhe"])
     if criterios:
+        c["satelites_por_hub_detalhe"].update(criterios.get("satelites_por_hub_detalhe") or {})
         for chave in ("dado_proprio", "minimo", "quente_ate_horas",
                       "satelites_por_hub", "idade_max_horas",
                       "intervalo_min_minutos"):
@@ -67,6 +73,13 @@ def horas_do_fato(pauta: dict, agora: datetime) -> float:
     referencia = (pauta.get("itens") or {}).get("publicado_em") or pauta["criado_em"]
     quando = datetime.fromisoformat(str(referencia).replace("Z", "+00:00"))
     return (agora - quando).total_seconds() / 3600
+
+
+def teto_do_hub(criterios: dict, hub: str | None) -> int:
+    """Quantos satelites a categoria pode ter no dia."""
+    detalhe = criterios.get("satelites_por_hub_detalhe") or {}
+    valor = detalhe.get(hub or "_", criterios.get("satelites_por_hub") or 0)
+    return int(valor or 0)
 
 
 def velha(publicado_em, criterios: dict, agora: datetime) -> bool:
@@ -159,7 +172,8 @@ def seleciona(pautas: list[dict], vagas: int, criterios: dict | None = None,
         if fato in fatos:
             continue
         hub = p.get("hub") or "_"
-        if teto_hub and por_hub.get(hub, 0) >= teto_hub:
+        teto = teto_do_hub(c, hub) if teto_hub else 0
+        if teto and por_hub.get(hub, 0) >= teto:
             continue  # o hub ja tem o dia cheio: a vaga fica para outro hub
         fatos.add(fato)
         por_hub[hub] = por_hub.get(hub, 0) + 1

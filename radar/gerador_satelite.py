@@ -243,7 +243,10 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
     dado = "; ".join(fatos)
     # Categoria com dado proprio (Focus, Selic, moeda de viagem): o texto e'
     # sobre ELE, e a PTAX do dolar vira so' contexto. Sem a fonte, cai na PTAX.
-    dc = dado_da_categoria(hub, n, site, hoje) if hub != "cotacao" else None
+    # recorte = quantos satelites desta categoria ja' sairam hoje (o fluxo de
+    # satelites/ensaio informa em pauta["_recorte"]): o 2o do dia usa outro dado
+    dc = (dado_da_categoria(hub, n, site, hoje, int(pauta.get("_recorte") or 0))
+          if hub != "cotacao" else None)
     if dc:
         dado = "; ".join(dc["fatos"])
 
@@ -322,7 +325,8 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
              "frases nem o formato do titulo. Escolha um jeito proprio de abrir "
              "(pelo numero, pela manchete ou pelo que muda para quem compra) e "
              "use a 'posicao' dos dados exatamente como vem.\n\n"
-             + _exemplos(hub) + "\n\n") if _exemplos(hub) else "")
+             + _exemplos((dc or {}).get("exemplos") or hub) + "\n\n")
+            if _exemplos((dc or {}).get("exemplos") or hub) else "")
         + (("Titulos recentes do site — o seu tem de ser DIFERENTE deles, na "
             "forma e nas palavras:\n"
             + "\n".join(f"- {t}" for t in (titulos_recentes or [])[:10]) + "\n\n")
@@ -373,7 +377,9 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
     markdown = f"# {titulo}\n\n{corpo}\n"
     resumo = corpo.split("\n\n")[0][:280]
     return {"titulo": titulo, "markdown": markdown, "resumo": resumo,
-            "jsonld": jsonld, "por": "llm", "dado": hub if dc else "cotacao",
+            "jsonld": jsonld, "por": "llm",
+            "dado": ((dc.get("exemplos") or hub) if dc else "cotacao")
+                    + (f" ({dc['tema'][:40]})" if dc else ""),
             "motivo": "aprovado na 1a" if tentativa == 1 else "aprovado na 2a"}, ""
 
 

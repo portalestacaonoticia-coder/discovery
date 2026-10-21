@@ -19,7 +19,7 @@ from .alerta import avisa
 from .banco import Banco
 from .config import RAIZ, carrega_sites, site_ativo
 from .gerador_satelite import monta
-from .pontua import criterios_com_padrao, velha
+from .pontua import criterios_com_padrao, teto_do_hub, velha
 
 SITE = "doll"
 SAIDA = RAIZ / "saida"
@@ -66,6 +66,7 @@ def main() -> int:
 
     inicio_dia = inicio_do_dia_sp()
     candidatas, por = leitor.pautas_para_satelite(SITE, inicio_dia)
+    publicados_antes = dict(por)   # por categoria, ja' no ar hoje (define o recorte)
 
     # A vaga do hub e' de quem esta' MADURA (horario vencido ou sem horario),
     # na ordem de pontuacao; pauta futura NUNCA reserva vaga — ela concorre
@@ -92,7 +93,8 @@ def main() -> int:
             except ValueError:
                 pass
         hub = p.get("hub") or "_"
-        if por.get(hub, 0) >= por_hub:
+        teto = teto_do_hub({**criterios, "satelites_por_hub": por_hub}, hub)
+        if por.get(hub, 0) >= teto:
             continue
         por[hub] = por.get(hub, 0) + 1
         pautas.append(p)
@@ -133,6 +135,8 @@ def main() -> int:
         # de cotacao — todo satelite tem para onde apontar.
         url_ancora = (leitor.ancora_do_hub(SITE, pt.get("hub") or "cotacao")
                       or leitor.ancora_do_hub(SITE, "cotacao"))
+        # 2o satelite da categoria no dia usa o 2o recorte (dado_categoria)
+        pt["_recorte"] = publicados_antes.get(pt.get("hub") or "_", 0)
         art = monta(pt, serie, url_ancora, site, leia_tambem)
         # o proximo satelite da rodada tambem nao pode repetir este titulo
         # (sem url: nao entra no Leia tambem, so' na lista de titulos)

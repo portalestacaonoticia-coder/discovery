@@ -349,7 +349,9 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
         # "nesta terca-feira, 9 de junho" para manchete de meses atras (ensaio
         # por categoria, 21/10/2026): "nesta/desta" e' da semana corrente
         m = re.search(r"\b(n|d)est[ae]s?\s+(segunda|ter[cç]a|quarta|quinta|sexta)"
-                      r"(-feira)?|\b(n|d)es[st]e\s+(s[aá]bado|domingo)\b", texto, re.I)
+                      r"(-feira)?|\b(n|d)es[st]e\s+(s[aá]bado|domingo)\b|"
+                      r"\b[uú]ltim[ao]\s+(segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo)",
+                      texto, re.I)
         if m and dias > 6:
             problemas.append(f"\"{m.group(0)}\": a manchete e' de {data_manchete:%d/%m}, "
                              f"ha' {dias} dias; diga a data sem 'nesta'")
@@ -421,6 +423,19 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
                 problemas.append(f"a PTAX ({brl(n['venda'], 4)}) esta' "
                                  f"{'ABAIXO' if acima else 'ACIMA'} da projecao "
                                  f"({brl(proj, 2)}): \"{frase.strip()[:80]}\"")
+
+    # conselho de compra/venda: o site descreve numeros, nao recomenda (ensaio
+    # dos recortes: "pode incentivar a antecipacao de compras de moeda")
+    m = re.search(r"antecipa\w*\s+(a |as |de )?compras?|(vale|compensa)\s+(a pena\s+)?"
+                  r"(comprar|esperar|aguardar)|hora de comprar|melhor momento (de|para) comprar|"
+                  r"recomenda\w* (comprar|esperar)", texto, re.I)
+    if m:
+        problemas.append(f"\"{m.group(0)}\": nao recomende comprar, vender ou esperar; "
+                         "descreva os numeros")
+    # sinal dobrado ("deflacao de -0,32%")
+    m = re.search(r"(defla[cç][aã]o|queda|recuo|baixa) de -\s?\d", texto, re.I)
+    if m:
+        problemas.append(f"\"{m.group(0)}\": a palavra ja' diz o sinal; tire o '-'")
 
     # atribuicao dobrada ("Segundo a imprensa, a imprensa noticiou")
     m = re.search(r"segundo a imprensa,?\s+a imprensa", texto, re.I)

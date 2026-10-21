@@ -27,6 +27,7 @@ MOEDA = ("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
 
 SERIE_SELIC_META = 432
 SERIE_IPCA_12M = 13522
+SERIE_IPCA_MES = 433
 
 # Moedas da categoria viagem (todas com PTAX no BC; peso argentino, chileno
 # e mexicano nao tem, e o iene sai a R$ 0,03 por unidade). O euro, destino
@@ -36,6 +37,8 @@ MOEDAS_VIAGEM = {
     "CHF": "franco suíço", "AUD": "dólar australiano",
 }
 RODIZIO_VIAGEM = ["EUR", "GBP", "EUR", "CAD", "EUR", "CHF", "EUR", "AUD"]
+PLURAL = {"EUR": "euros", "GBP": "libras esterlinas", "CAD": "dólares canadenses",
+          "CHF": "francos suíços", "AUD": "dólares australianos"}
 
 
 def _get(url: str, params: dict | None = None, prazo: int = 60):
@@ -91,6 +94,17 @@ def ipca_12m(hoje: date | None = None) -> dict | None:
         return None
     ref, valor = serie[-1]
     return {"valor": valor, "referencia": ref}
+
+
+def ipca_mes(hoje: date | None = None) -> dict | None:
+    """{valor, referencia, anterior}: IPCA do ultimo mes divulgado e o do mes
+    anterior (variacao mensal, em %)."""
+    hoje = hoje or date.today()
+    serie = _sgs(SERIE_IPCA_MES, hoje - timedelta(days=120), hoje)
+    if len(serie) < 2:
+        return None
+    return {"valor": serie[-1][1], "referencia": serie[-1][0], "anterior": serie[-2][1],
+            "referencia_anterior": serie[-2][0]}
 
 
 def focus(indicador: str, ano: int, hoje: date | None = None) -> dict | None:
@@ -154,13 +168,23 @@ def moeda(codigo: str, hoje: date | None = None) -> dict | None:
     janela = [x for _, x in linhas[-22:]]
     base_30 = janela[0]
     return {"codigo": codigo, "nome": MOEDAS_VIAGEM.get(codigo, codigo),
+            "plural": PLURAL.get(codigo, MOEDAS_VIAGEM.get(codigo, codigo) + "s"),
             "venda": venda, "data": data, "venda_anterior": anterior,
             "var_dia": (venda / anterior - 1) * 100,
             "venda_30d": base_30, "var_30d": (venda / base_30 - 1) * 100,
             "menor_30d": min(janela), "maior_30d": max(janela), "pregoes": len(janela)}
 
 
-def moeda_do_dia(hoje: date | None = None) -> str:
-    """Rodizio: uma moeda de viagem por dia do ano."""
+def moeda_do_dia(hoje: date | None = None, ordem: int = 0) -> str:
+    """Rodizio: a moeda de viagem do dia (ordem 0) e, para o 2o satelite de
+    viagem do dia (ordem 1), a proxima moeda DIFERENTE do rodizio."""
     hoje = hoje or date.today()
-    return RODIZIO_VIAGEM[hoje.timetuple().tm_yday % len(RODIZIO_VIAGEM)]
+    i = hoje.timetuple().tm_yday % len(RODIZIO_VIAGEM)
+    primeira = RODIZIO_VIAGEM[i]
+    if not ordem:
+        return primeira
+    for passo in range(1, len(RODIZIO_VIAGEM)):
+        outra = RODIZIO_VIAGEM[(i + passo) % len(RODIZIO_VIAGEM)]
+        if outra != primeira:
+            return outra
+    return primeira

@@ -65,6 +65,7 @@ def escreve_satelite(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dic
     url_ancora = (banco.ancora_do_hub(nome, pt.get("hub") or "cotacao")
                   or banco.ancora_do_hub(nome, "cotacao"))
     llm.limpa_falhas()
+    pt.setdefault("_recorte", 0)
     # titulos desta rodada contam como recentes, como na esteira (satelites.py)
     art = monta(pt, serie, url_ancora, site,
                 [{"titulo": t} for t in _TITULOS_DA_RODADA] + banco.artigos_recentes(nome))
@@ -102,6 +103,8 @@ def main() -> int:
     p.add_argument("--site", default="doll")
     p.add_argument("--limite", type=int, default=10)
     p.add_argument("--hub", help="ensaia pautas de UMA categoria (qualquer status)")
+    p.add_argument("--alternar", action="store_true",
+                   help="alterna 1o e 2o recorte da categoria (pauta par = 2o)")
     args = p.parse_args()
 
     site = carrega_sites().get(args.site)
@@ -120,6 +123,8 @@ def main() -> int:
     print(f"{len(pautas)} pauta(s) publicada(s) para reescrever com {modelo}")
     for n, pt in enumerate(pautas, 1):
         guia = bool(pt.get("brief"))
+        if args.alternar:
+            pt["_recorte"] = (n - 1) % 2
         ref = f"guia-{pt['id']}" if guia else f"satelite-{pt['id']}"
         print(f"\n[{n}/{len(pautas)}] {ref}: {pt.get('titulo_sug') or ''}"[:140])
         inicio = time.monotonic()
