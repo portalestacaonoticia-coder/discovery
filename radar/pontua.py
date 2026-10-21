@@ -31,19 +31,30 @@ PADRAO = {
     # aplica. A selecao precisa conhece-lo: em 31/08 ela encheu a meta com
     # 6 pautas de cotacao sendo que so 2 podiam sair, e o dia fechou 6/8.
     "satelites_por_hub": 2,
+    # idade maxima do FATO (horas). Acima disso a noticia nao vira pauta,
+    # nem e' selecionada, nem vira satelite. Em 20/10/2026, depois de 19
+    # dias parado, o feed devolveu manchetes de junho, agosto e setembro e a
+    # selecao aprovou 3 de 4 (o dado proprio pesa mais que o frescor).
+    "idade_max_horas": 72,
+    # intervalo minimo entre dois satelites publicados (minutos). Em
+    # 20/10/2026 saíram 5 no mesmo minuto (pautas "quentes" saem na hora),
+    # 59% de texto igual entre si: padrao de conteudo em escala.
+    "intervalo_min_minutos": 90,
 }
 
 
 def criterios_com_padrao(criterios: dict | None) -> dict:
     """Mescla os criterios salvos com os padroes (salvo incompleto nao quebra)."""
     c = {k: PADRAO[k] for k in ("dado_proprio", "minimo", "quente_ate_horas",
-                                "satelites_por_hub")}
+                                "satelites_por_hub", "idade_max_horas",
+                                "intervalo_min_minutos")}
     c["angulos"] = dict(PADRAO["angulos"])
     c["frescor"] = dict(PADRAO["frescor"])
     c["janela"] = dict(PADRAO["janela"])
     if criterios:
         for chave in ("dado_proprio", "minimo", "quente_ate_horas",
-                      "satelites_por_hub"):
+                      "satelites_por_hub", "idade_max_horas",
+                      "intervalo_min_minutos"):
             if isinstance(criterios.get(chave), (int, float)):
                 c[chave] = criterios[chave]
         c["angulos"].update(criterios.get("angulos") or {})
@@ -56,6 +67,19 @@ def horas_do_fato(pauta: dict, agora: datetime) -> float:
     referencia = (pauta.get("itens") or {}).get("publicado_em") or pauta["criado_em"]
     quando = datetime.fromisoformat(str(referencia).replace("Z", "+00:00"))
     return (agora - quando).total_seconds() / 3600
+
+
+def velha(publicado_em, criterios: dict, agora: datetime) -> bool:
+    """O fato passou da idade maxima? Sem data, nao da' para dizer: passa."""
+    if not publicado_em:
+        return False
+    try:
+        quando = datetime.fromisoformat(str(publicado_em).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if quando.tzinfo is None:
+        quando = quando.replace(tzinfo=timezone.utc)
+    return (agora - quando).total_seconds() / 3600 > criterios["idade_max_horas"]
 
 
 def eh_quente(pauta: dict, criterios: dict, agora: datetime) -> bool:
@@ -116,6 +140,8 @@ def seleciona(pautas: list[dict], vagas: int, criterios: dict | None = None,
 
     pontuadas = []
     for p in pautas:
+        if velha((p.get("itens") or {}).get("publicado_em"), c, agora):
+            continue
         pontos, motivo = pontua(p, c, agora)
         pontuadas.append({**p, "pontuacao": pontos, "motivo_selecao": motivo})
     pontuadas.sort(key=lambda p: p["pontuacao"], reverse=True)
