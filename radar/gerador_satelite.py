@@ -20,6 +20,7 @@ from pathlib import Path
 
 from . import llm
 from .confere_satelite import confere, posicao
+from .dado_categoria import dado as dado_da_categoria
 from .gerador_dolar import DIAS, MESES, brl, pct, _rumo
 
 FUSO_SP = timezone(timedelta(hours=-3))
@@ -29,10 +30,16 @@ FUSO_SP = timezone(timedelta(hours=-3))
 EXEMPLOS = Path(__file__).resolve().parent.parent / "config" / "exemplos_satelite.md"
 
 
-def _exemplos() -> str:
-    """Os exemplos sem o comentario de cabecalho; '' se o arquivo sumir."""
+def _exemplos(hub: str | None = None) -> str:
+    """Os exemplos sem o comentario de cabecalho; '' se o arquivo sumir.
+    Categoria com dado proprio tem os seus (exemplos_satelite_<hub>.md)."""
+    arquivo = EXEMPLOS
+    if hub and hub != "cotacao":
+        proprio = EXEMPLOS.with_name(f"exemplos_satelite_{hub}.md")
+        if proprio.exists():
+            arquivo = proprio
     try:
-        texto = EXEMPLOS.read_text(encoding="utf-8")
+        texto = arquivo.read_text(encoding="utf-8")
     except OSError:
         return ""
     return re.sub(r"<!--.*?-->", "", texto, flags=re.S).strip()
@@ -234,6 +241,14 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
                "meio": "no meio da faixa do ano"}[
                    posicao(n['venda'], n['min_ano'], n['max_ano'])])
     dado = "; ".join(fatos)
+    # Categoria com dado proprio (Focus, Selic, moeda de viagem): o texto e'
+    # sobre ELE, e a PTAX do dolar vira so' contexto. Sem a fonte, cai na PTAX.
+    # recorte = quantos satelites desta categoria ja' sairam hoje (o fluxo de
+    # satelites/ensaio informa em pauta["_recorte"]): o 2o do dia usa outro dado
+    dc = (dado_da_categoria(hub, n, site, hoje, int(pauta.get("_recorte") or 0))
+          if hub != "cotacao" else None)
+    if dc:
+        dado = "; ".join(dc["fatos"])
 
     sistema = (
         "Voce e' redator de um portal brasileiro de cambio (doll.com.br). "
@@ -244,12 +259,16 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         "propria. Voce NAO tem o texto da materia, so' a manchete: nao "
         "invente numero, data, causa ou detalhe que nao esteja nos dados "
         "fornecidos.\n"
-        "- O valor proprio do texto e' o DADO da base (PTAX e variacoes) — "
-        "use TODOS os numeros fornecidos, tecendo o contexto: o dia, a "
-        "semana, o mes, a sequencia e a posicao frente aos extremos do ano "
-        "(ex.: a que distancia esta da maxima). Atencao: quando o DOLAR "
-        "sobe, o real cai (e vice-versa) — respeite a direcao exata, nunca "
-        "inverta quem subiu.\n"
+        + ((f"- O ASSUNTO do texto e' {dc['tema']}. {dc['foco']} Use os "
+            "numeros fornecidos (todos ja' calculados) e respeite a direcao "
+            "exata de cada um. Quando uma moeda estrangeira sobe, o real "
+            "perde valor (e vice-versa).\n") if dc else
+           ("- O valor proprio do texto e' o DADO da base (PTAX e variacoes) — "
+            "use TODOS os numeros fornecidos, tecendo o contexto: o dia, a "
+            "semana, o mes, a sequencia e a posicao frente aos extremos do ano "
+            "(ex.: a que distancia esta da maxima). Atencao: quando o DOLAR "
+            "sobe, o real cai (e vice-versa) — respeite a direcao exata, nunca "
+            "inverta quem subiu.\n")) +
         "- Vocabulario: a PTAX e' a taxa de referencia do Banco Central — "
         "NUNCA a chame de 'dolar comercial'. A maxima e a minima fornecidas "
         "sao do ultimo ano: diga 'maxima/minima do ano' ou 'dos ultimos 12 "
@@ -266,12 +285,14 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         "manchete. A PTAX, as variacoes, a sequencia e os extremos sao dado "
         "NOSSO, do Banco Central: nunca os ponha na boca da imprensa, nem na "
         "mesma frase da atribuicao.\n"
-        "- Para dar analise, use as distancias JA' CALCULADAS nos dados (ate o "
-        "topo e o piso da faixa, ate a maxima e a minima do ano) e diga o que "
-        "isso significa para quem compra dolar. Nao faca contas: todo numero "
+        "- Para dar analise, use as comparacoes JA' CALCULADAS nos dados e diga "
+        "o que isso significa para o leitor. Nao faca contas: todo numero "
         "do texto tem de estar nos dados.\n"
         "- Estruture em 3-4 paragrafos com UM subtitulo markdown (##) no "
-        "meio; nada de lista de topicos.\n"
+        "meio; NADA de lista de topicos. O texto tem de usar os numeros "
+        "fornecidos: texto generico, sem os dados, e' reprovado.\n"
+        "- O UNICO link permitido e' o da pagina-guia indicada, exatamente como "
+        "vem; nao invente outra URL.\n"
         "- Termine convidando a ler a pagina-guia, com o link em markdown.\n"
         "- Portugues do Brasil, tom jornalistico e direto, 250-350 palavras.\n"
         "Responda SO um JSON: {\"titulo\": \"...\", \"corpo_md\": \"...\"} — "
@@ -288,7 +309,8 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
            if data_manchete else
            "A data da manchete e' desconhecida: nao atribua a noticia a "
            "nenhum dia.\n") +
-        f"Dado proprio (nossa base, PTAX do Banco Central): {dado}.\n"
+        (f"Dado proprio (Banco Central / IBGE, ja' conferido): {dado}.\n" if dc else
+           f"Dado proprio (nossa base, PTAX do Banco Central): {dado}.\n") +
         f"HOJE e': {_data_extenso(hoje)}.\n"
         f"A cotacao e' do PREGAO de: {_data_extenso(n['data'])}.\n"
         "Se hoje e o pregao forem dias DIFERENTES (noite, fim de semana), "
@@ -303,7 +325,8 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
              "frases nem o formato do titulo. Escolha um jeito proprio de abrir "
              "(pelo numero, pela manchete ou pelo que muda para quem compra) e "
              "use a 'posicao' dos dados exatamente como vem.\n\n"
-             + _exemplos() + "\n\n") if _exemplos() else "")
+             + _exemplos((dc or {}).get("exemplos") or hub) + "\n\n")
+            if _exemplos((dc or {}).get("exemplos") or hub) else "")
         + (("Titulos recentes do site — o seu tem de ser DIFERENTE deles, na "
             "forma e nas palavras:\n"
             + "\n".join(f"- {t}" for t in (titulos_recentes or [])[:10]) + "\n\n")
@@ -320,7 +343,9 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
             return None, "o modelo nao respondeu"
         bruto = re.search(r"\{.*\}", saida, re.S)
         try:
-            d = json.loads(bruto.group(0)) if bruto else None
+            # strict=False: quebra de linha crua no corpo (1 de 30 no ensaio
+            # por categoria caiu no template so' por isso)
+            d = json.loads(bruto.group(0), strict=False) if bruto else None
         except json.JSONDecodeError:
             d = None
         if not isinstance(d, dict):
@@ -333,7 +358,8 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
             motivo = "- o texto veio sem titulo ou curto demais (minimo 250 palavras)"
             continue
         problemas = confere(titulo, corpo, n, manchete, hoje, data_manchete,
-                            titulos_recentes)
+                            titulos_recentes, extras=dc["extras"] if dc else None,
+                            links_permitidos=[url_ancora, fonte_url])
         if not problemas:
             break
         motivo = "\n".join(f"- {p}" for p in problemas)
@@ -346,12 +372,14 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
         "headline": titulo, "datePublished": agora, "dateModified": agora,
         "inLanguage": site.get("idioma", "pt-BR"), "isAccessibleForFree": True,
         "publisher": {"@type": "NewsMediaOrganization", "name": site["entidade"]},
-        "about": {"@type": "Thing", "name": "Cotação do dólar"},
+        "about": {"@type": "Thing", "name": dc["about"] if dc else "Cotação do dólar"},
     }, ensure_ascii=False, indent=2)
     markdown = f"# {titulo}\n\n{corpo}\n"
     resumo = corpo.split("\n\n")[0][:280]
     return {"titulo": titulo, "markdown": markdown, "resumo": resumo,
             "jsonld": jsonld, "por": "llm",
+            "dado": ((dc.get("exemplos") or hub) if dc else "cotacao")
+                    + (f" ({dc['tema'][:40]})" if dc else ""),
             "motivo": "aprovado na 1a" if tentativa == 1 else "aprovado na 2a"}, ""
 
 
