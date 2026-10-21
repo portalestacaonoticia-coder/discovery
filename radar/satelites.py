@@ -99,6 +99,16 @@ def main() -> int:
         por[hub] = por.get(hub, 0) + 1
         pautas.append(p)
 
+    # Fora da janela editorial (criterios.janela, horas de Sao Paulo) nada
+    # sai, nem pauta "quente": em 21/10/2026, a 00:12, a virada do dia soltou
+    # 8 satelites quase iguais de uma vez.
+    janela = criterios.get("janela") or {}
+    if pautas and not (int(janela.get("inicio", 8)) <= agora.hour < int(janela.get("fim", 20))):
+        print(f"[janela] {agora:%H:%M} fora da janela {janela.get('inicio', 8)}h-"
+              f"{janela.get('fim', 20)}h: {len(pautas)} madura(s) esperam")
+        em_espera += len(pautas)
+        pautas = []
+
     # No maximo 1 satelite por rodada, e so' se o ultimo saiu ha' pelo menos
     # intervalo_min_minutos. As outras maduras esperam a proxima rodada.
     if pautas:
