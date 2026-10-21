@@ -321,6 +321,17 @@ class Banco:
 
     # -- satelites (artigos de pauta que linkam para os ancora) --------------
 
+    def ultimo_satelite_publicado(self, site: str) -> str | None:
+        """criado_em (ISO) do satelite mais recente que foi ao ar; None se
+        nenhum. Base do intervalo minimo entre satelites (radar.satelites)."""
+        if self.seco or not self.cliente:
+            return None
+        r = (self.cliente.table("artigos").select("criado_em")
+             .eq("site", site).eq("tipo", "satelite").eq("status", "publicada")
+             .not_.is_("url_publicada", "null")
+             .order("criado_em", desc=True).limit(1).execute())
+        return r.data[0]["criado_em"] if r.data else None
+
     def artigos_recentes(self, site: str, limite: int = 12) -> list[dict]:
         """Ultimos artigos publicados (titulo + url) — viram o bloco
         Leia tambem dos satelites: profundidade por link interno."""

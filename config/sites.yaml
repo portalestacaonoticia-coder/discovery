@@ -126,6 +126,15 @@ sites:
     fontes:
       - tipo: google_news
         consulta: "dolar OR cotacao OR cambio OR PTAX"
+      # 20/10/2026: meta de 10 posts/dia. So' a busca acima dava 4 noticias
+      # frescas (72 h), todas em "cotacao". Uma busca por categoria; medido
+      # no dia: indicadores 26 frescas, politica monetaria 15, viagem 2.
+      - tipo: google_news
+        consulta: "Focus OR IPCA OR inflação OR PIB dólar"
+      - tipo: google_news
+        consulta: "Copom OR Selic OR Galípolo"
+      - tipo: google_news
+        consulta: "dólar turismo OR \"cotação turismo\" OR remessa exterior"
 
     base: cotacoes
 
