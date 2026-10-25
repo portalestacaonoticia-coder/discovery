@@ -40,7 +40,9 @@ def classifica_por_llm(titulo: str, resumo: str, site: dict) -> dict | None:
     if not llm.tem_chave():
         return None
 
-    hubs = "\n".join(f"- {h['id']}: {h['titulo']}" for h in site.get("hubs", []))
+    hubs = "\n".join(f"- {h['id']}: {h['titulo']}"
+                     + (f" ({h['descricao']})" if h.get("descricao") else "")
+                     for h in site.get("hubs", []))
     prompt = (
         f"Site sobre: {site['entidade']}.\n"
         f"Hubs disponiveis:\n{hubs}\n\n"

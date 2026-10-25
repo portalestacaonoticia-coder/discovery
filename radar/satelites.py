@@ -148,6 +148,11 @@ def main() -> int:
         # 2o satelite da categoria no dia usa o 2o recorte (dado_categoria)
         pt["_recorte"] = publicados_antes.get(pt.get("hub") or "_", 0)
         art = monta(pt, serie, url_ancora, site, leia_tambem)
+        if art.get("por") == "falhou":
+            # sem template: a pauta segue aprovada e tenta de novo na proxima rodada
+            print(f"[falhou] pauta {pt['id']} ({pt.get('hub')}): {art.get('motivo')} "
+                  "— fica para a proxima rodada")
+            continue
         # o proximo satelite da rodada tambem nao pode repetir este titulo
         # (sem url: nao entra no Leia tambem, so' na lista de titulos)
         leia_tambem.insert(0, {"titulo": art["titulo"]})
@@ -201,7 +206,7 @@ def main() -> int:
         exemplo = monta(pautas[0], serie,
                         leitor.ancora_do_hub(SITE, pautas[0].get("hub") or "cotacao"),
                         site)
-        print("\n" + "=" * 70 + "\n" + exemplo["markdown"])
+        print("\n" + "=" * 70 + "\n" + exemplo.get("markdown", f"[falhou] {exemplo.get('motivo')}"))
     elif not args.seco:
         banco.registra_execucao({
             "fluxo": "satelites", "site": SITE, "status": "ok",

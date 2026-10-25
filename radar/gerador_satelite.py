@@ -247,6 +247,10 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
     # satelites/ensaio informa em pauta["_recorte"]): o 2o do dia usa outro dado
     dc = (dado_da_categoria(hub, n, site, hoje, int(pauta.get("_recorte") or 0))
           if hub != "cotacao" else None)
+    if hub != "cotacao" and not dc:
+        # Sem o dado da categoria NAO recai na PTAX do dolar: em 24/10/2026 o
+        # 2o de indicadores saiu sobre a PTAX, repetindo o de cotacao do dia.
+        return None, f"dado da categoria '{hub}' indisponivel (fonte do BC nao respondeu)"
     if dc:
         dado = "; ".join(dc["fatos"])
 
@@ -385,11 +389,19 @@ def _monta_llm(pauta: dict, serie: list[dict], url_ancora: str | None,
 
 def monta(pauta: dict, serie: list[dict], url_ancora: str | None,
           site: dict, leia_tambem: list[dict] | None = None) -> dict:
-    """Satelite pelo gpt-5.6-luna quando ha' chave; senao, pelo template. Ambos
+    """Satelite pelo modelo quando ha' um; senao, pelo template. Ambos
     respeitam os mesmos guarda-corpos (fonte atribuida, dado proprio, link)
-    e ganham os apendices deterministicos: conversao do dia + Leia tambem."""
+    e ganham os apendices deterministicos: conversao do dia + Leia tambem.
+
+    Com modelo configurado e falha (resposta vazia, reprovado 2x, dado da
+    categoria indisponivel) NAO cai no template: devolve {"por": "falhou",
+    "motivo": ...} e a pauta espera a proxima rodada. Em 23/10/2026 o exo
+    devolveu respostas vazias e saíram 4 templates no dia, 2 com o mesmo
+    titulo. Sem modelo nenhum (nuvem sem chave), o template continua."""
     titulos = [a["titulo"] for a in (leia_tambem or []) if a.get("titulo")]
     art, motivo = _monta_llm(pauta, serie, url_ancora, site, titulos)
+    if not art and llm.tem_chave():
+        return {"por": "falhou", "motivo": motivo}
     if not art:
         art = _monta_template(pauta, serie, url_ancora, site)
         art["por"], art["motivo"] = "template", motivo

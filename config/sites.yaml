@@ -93,8 +93,13 @@ sites:
         categorias: ["Política Monetária"]
       - id: viagem
         titulo: "Dolar para viagem: turismo, cartao e IOF"
+        # o classificador le esta descricao (25/10/2026: noticia de euro caia
+        # em cotacao e viagem ficava sem pauta)
+        descricao: "inclui as outras moedas de viagem (euro, libra, dolar canadense, franco suico, dolar australiano)"
         url: /dolar-viagem
-        termos: [viagem, turismo, iof, cartao, cartão, remessa, exterior, casa de cambio]
+        termos: [viagem, turismo, iof, cartao, cartão, remessa, exterior, casa de cambio,
+                 euro, libra, franco suico, franco suíço, dolar canadense, dólar canadense,
+                 dolar australiano, dólar australiano]
         imagem: "travel passport money airport"
         categorias: ["Viagem e IOF"]
       - id: indicadores
@@ -135,6 +140,12 @@ sites:
         consulta: "Copom OR Selic OR Galípolo"
       - tipo: google_news
         consulta: "dólar turismo OR \"cotação turismo\" OR remessa exterior"
+      # 25/10/2026: viagem nao teve um satelite sequer de 21 a 24/10 (2 noticias
+      # frescas/dia). Medido no dia: euro 8 frescas, outras moedas 3.
+      - tipo: google_news
+        consulta: "euro hoje OR \"cotação do euro\" OR \"euro sobe\" OR \"euro cai\""
+      - tipo: google_news
+        consulta: "libra esterlina OR \"dólar canadense\" OR \"franco suíço\" OR \"dólar australiano\""
 
     base: cotacoes
 
