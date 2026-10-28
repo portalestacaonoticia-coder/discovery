@@ -214,3 +214,20 @@ assert any("recomende" in p for p in c("t", "Isso pode incentivar a antecipaçã
 assert any("sinal" in p for p in c("t", "Revertendo a deflação de -0,32% de agosto."))
 print("conferente (recortes): ok")
 
+
+# revisao de 28/10/2026: semana x dia, R$ 0,0000, timing, teto historico, projecao no titulo
+N_sem = {**N, "var_semana": 6.39}
+assert any("inicio da semana" in p for p in confere(
+    "t", "Quem compra a moeda americana hoje paga menos do que no início da semana.", N_sem, "", HOJE, None))
+assert not any("inicio da semana" in p for p in confere(
+    "t", "Quem compra hoje paga menos do que ontem, mas ainda mais do que no início da semana.", N_sem, "", HOJE, None))
+assert any("distancia zero" in p for p in c("t", "A R$ 0,0000 do topo da faixa."))
+assert any("recomende" in p for p in c("t", "É um dado relevante para calibrar o timing da compra."))
+assert any("historicos" in p for p in c("t", "O dólar está no teto histórico dos últimos 12 meses."))
+N_proj = {**N, "venda": 5.3346}
+ex_proj = {"brl": [5.05, 5.20], "pct": [2.89], "projecao": 5.05, "datas": []}
+assert any("projecao do Focus" in p for p in confere(
+    "Dólar a R$ 5,05: Focus aponta queda de 2,89% na projeção", "x", N_proj, "", HOJE, None, extras=ex_proj))
+assert not any("projecao do Focus" in p for p in confere(
+    "Focus reduz projeção do dólar para R$ 5,05 no fim de 2026", "x", N_proj, "", HOJE, None, extras=ex_proj))
+print("conferente (revisao 28/10): ok")
