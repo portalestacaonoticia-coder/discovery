@@ -16,6 +16,7 @@ from . import llm, motor
 from .alerta import avisa
 from .banco import Banco
 from .classifica import avalia, sugere
+from .pontua import criterios_com_padrao, velha
 from .config import carrega_sites, filtra_sites
 from .fontes import coleta
 from .normaliza import canoniza_url, hash_dedup, sem_acento, veiculo_de
@@ -75,7 +76,9 @@ def dado_proprio(banco: Banco, nome_site: str, site: dict, titulo: str,
 
 def roda_site(nome: str, site: dict, banco: Banco) -> dict:
     print(f"\n=== {nome} ({site['dominio']}) ===")
-    novos = pautas = descartados = 0
+    novos = pautas = descartados = velhos = 0
+    criterios = criterios_com_padrao((banco.meta_do_site(nome) or {}).get("criterios"))
+    agora = datetime.now(timezone.utc)
 
     for fonte in site.get("fontes", []):
         try:
@@ -87,6 +90,12 @@ def roda_site(nome: str, site: dict, banco: Banco) -> dict:
         for cru in itens:
             h = hash_dedup(cru["titulo"], cru.get("publicado_em"))
             if banco.item_existe(nome, h):
+                continue
+            # noticia velha nem passa pelo classificador (o feed devolve
+            # manchetes de meses atras; ver pontua.PADRAO["idade_max_horas"])
+            if velha(cru.get("publicado_em").isoformat() if cru.get("publicado_em") else None,
+                     criterios, agora):
+                velhos += 1
                 continue
 
             registro = {
@@ -123,7 +132,8 @@ def roda_site(nome: str, site: dict, banco: Banco) -> dict:
                 })
                 pautas += 1
 
-    print(f"  {novos} itens novos, {pautas} pautas geradas, {descartados} descartados")
+    print(f"  {novos} itens novos, {pautas} pautas geradas, {descartados} descartados"
+          + (f", {velhos} velhos ignorados" if velhos else ""))
     return {"site": nome, "itens": novos, "pautas": pautas, "descartados": descartados}
 
 
