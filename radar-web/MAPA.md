@@ -17,7 +17,8 @@ Projeto Vercel **radar-tihee** (plano Pro — é ele quem pode ter cron de
 
 ## Estrutura
 
-- `api/tick-radar.ts` / `api/tick-dolar.ts` — o RELÓGIO. Autônomos de
+- `api/tick-dolar.ts` — o RELÓGIO da cotação diária (o `tick-radar` saiu em
+  20/10/2026: o radar roda nos Macs). Autônomo de
   propósito: import relativo sem extensão quebra o runtime ESM da Vercel
   (FUNCTION_INVOCATION_FAILED). Env: RELOGIO_GITHUB_TOKEN (PAT fine-grained,
   Actions read&write só no discovery), CRON_SECRET opcional.

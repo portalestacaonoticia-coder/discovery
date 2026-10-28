@@ -32,10 +32,10 @@ python -m radar.principal --site ferrugem   # um site
 python -m radar.principal                   # todos
 ```
 
-No Supabase, rodar `sql/schema.sql` uma vez. Em producao, o
-`.github/workflows/radar.yml` roda a cada 30 minutos, disparado pelo cron da
-Vercel (`radar-web/api/tick-radar.ts`; o workflow nao tem `schedule` proprio,
-para nao rodar em dobro) — os segredos vao em
+No Supabase, rodar `sql/schema.sql` uma vez. Desde 20/10/2026 a producao
+do doll roda nos Macs, com modelo local (`mac/LEIA-ME.md`); o
+`.github/workflows/radar.yml` ficou so' para rodar a' mao (o cron da Vercel
+que o disparava saiu) — os segredos vao em
 Settings → Secrets → Actions (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
 `DISCORD_WEBHOOK`, `OPENAI_API_KEY` para classificar as pautas e escrever os
 artigos com o gpt-5.6-luna).
