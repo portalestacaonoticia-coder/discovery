@@ -17,4 +17,4 @@ A PTAX de 9 de março, de R$ 5,3920, está 1,61% abaixo da projeção para o fim
 
 A inflação segue no radar: o IPCA esperado para 2026 recuou de 4,25% para 4,10%, enquanto o índice oficial acumulado em 12 meses até fevereiro está em 4,62%. Projeção não é garantia; é a mediana do que os economistas consultados pelo BC esperam hoje.
 
-Para quem planeja comprar dólar ao longo do ano, a comparação ajuda a calibrar o momento da compra. O custo do dia, com IOF, está em [quanto custa comprar dólar hoje](https://doll.com.br/quanto-custa-comprar-dolar-hoje-tabela-de-conversao-e-iof/).
+Para quem planeja comprar dólar ao longo do ano, a comparação mostra o que o mercado espera do câmbio até o fim do ano. O custo do dia, com IOF, está em [quanto custa comprar dólar hoje](https://doll.com.br/quanto-custa-comprar-dolar-hoje-tabela-de-conversao-e-iof/).

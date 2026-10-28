@@ -37,7 +37,7 @@ _RE_DIRECAO = re.compile(rf"\b({_SOBE}|{_DESCE})\b", re.I)
 # o portal nao assina. (padrao, por que) — o motivo vai para o modelo.
 _PROIBIDOS = [
     (r"d[oó]lar comercial", "a PTAX e' a taxa de referencia do BC, nao o 'dolar comercial'"),
-    (r"(m[aá]xima|m[ií]nima|pico|topo|piso|patamar|n[ií]vel)s? (\w+ ){0,2}?hist[oó]ric[ao]s?"
+    (r"(m[aá]xima|m[ií]nima|pico|topo|teto|piso|patamar|n[ií]vel)s? (\w+ ){0,2}?hist[oó]ric[ao]s?"
      r"|hist[oó]ric[ao]s? (mais )?(baix|alt)\w*",
      "os extremos fornecidos sao do ultimo ano, nao 'historicos'"),
     (r"segundo o ve[ií]culo|o ve[ií]culo\b", "fonte sem nome e' 'a imprensa', nunca 'o veiculo'"),
@@ -428,10 +428,32 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
     # dos recortes: "pode incentivar a antecipacao de compras de moeda")
     m = re.search(r"antecipa\w*\s+(a |as |de )?compras?|(vale|compensa)\s+(a pena\s+)?"
                   r"(comprar|esperar|aguardar)|hora de comprar|melhor momento (de|para) comprar|"
-                  r"recomenda\w* (comprar|esperar)", texto, re.I)
+                  r"recomenda\w* (comprar|esperar)|timing|calibrar (o momento|a compra)", texto, re.I)
     if m:
         problemas.append(f"\"{m.group(0)}\": nao recomende comprar, vender ou esperar; "
                          "descreva os numeros")
+
+    # comparacao com o inicio da semana contra o saldo da semana (27/10/2026:
+    # dolar -3,02% no dia e +6,39% na semana, "paga menos do que no inicio da semana")
+    vs = n.get("var_semana")
+    m = re.search(r"(menos|mais barat\w*|mais car\w*|mais)\s+(do )?que no in[ií]cio da semana", texto, re.I)
+    if m and vs:
+        diz_menos = m.group(1).lower() in ("menos",) or "barat" in m.group(1).lower()
+        if diz_menos != (vs < 0):
+            problemas.append(f"\"{m.group(0)}\": na semana o dolar {'caiu' if vs < 0 else 'subiu'} "
+                             f"{abs(vs):.2f}%".replace(".", ",") + "; compare com o dia anterior, "
+                             "nao com o inicio da semana")
+    # valor zerado ("A R$ 0,0000 do topo da faixa", 26/10/2026)
+    m = re.search(r"R\$\s?0,0+\b", texto)
+    if m:
+        problemas.append(f"\"{m.group(0)}\": distancia zero; diga que o dolar esta' no topo/piso")
+    # projecao no titulo como se fosse a cotacao ("Dolar a R$ 5,05: Focus aponta..."
+    # com PTAX de R$ 5,3346, 28/10/2026)
+    if proj:
+        m = re.search(r"d[oó]lar (a|em|de|vale) R\$\s?(\d{1,3}(?:\.\d{3})*(?:,\d+)?)", titulo, re.I)
+        if m and _bate(_num(m.group(2)), [proj]) and not _bate(_num(m.group(2)), [n["venda"]]):
+            problemas.append(f"titulo \"{m.group(0)}\": {brl(proj, 2)} e' a projecao do Focus, nao a "
+                             f"cotacao (PTAX {brl(n['venda'], 4)}); deixe claro que e' projecao")
     # sinal dobrado ("deflacao de -0,32%")
     m = re.search(r"(defla[cç][aã]o|queda|recuo|baixa) de -\s?\d", texto, re.I)
     if m:
