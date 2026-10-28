@@ -166,6 +166,12 @@ CASOS = {
                "Dólar sobe com cautela no exterior",
                date(2026, 3, 13), date(2026, 3, 13)),
 }
+CASOS["indicadores-inflacao"] = (
+    _n_ptax(5.3120, 0.1, date(2026, 4, 10)),
+    {"brl": [], "pct": [0.45, 0.62, 4.21, 3.0, 1.5, 4.5, 4.05, 4.20, 3.80],
+     "variacoes_moeda": {}, "variacoes_outras": {"ipca de marco": 0.45},
+     "datas": [date(2026, 4, 10)]},
+    "IPCA de março desacelera e fica em 0,45%", date(2026, 4, 13), date(2026, 4, 10))
 for hub, (n_hub, extras, manchete, hoje_hub, data_m) in CASOS.items():
     exemplo = _ex_hub(hub)
     assert "DADOS DESTE EXEMPLO" in exemplo and hub not in ("cotacao",), hub
@@ -191,4 +197,20 @@ assert confere("t", "A imprensa noticiou nesta segunda-feira, 19 de outubro, uma
                N, "", HOJE, date(2026, 10, 19)) == []
 assert any("repetida" in p for p in c("t", "Segundo a imprensa, a imprensa noticiou o Pix."))
 print("conferente (nesta / atribuicao): ok")
+
+# 2o recorte: teto por categoria e 2a moeda do dia (sempre diferente da 1a)
+from radar.pontua import criterios_com_padrao as _crit, teto_do_hub
+_c = _crit({"satelites_por_hub": 1, "satelites_por_hub_detalhe": {"viagem": 2, "indicadores": 2}})
+assert (teto_do_hub(_c, "viagem"), teto_do_hub(_c, "indicadores"), teto_do_hub(_c, "cotacao")) == (2, 2, 1)
+from radar.indicadores_bcb import moeda_do_dia
+for d in range(1, 31):
+    assert moeda_do_dia(date(2026, 11, d), 0) != moeda_do_dia(date(2026, 11, d), 1)
+print("segundo recorte: ok")
+
+# ensaio dos recortes: "ultima quinta-feira" antiga, conselho de compra, sinal dobrado
+assert any("27/08" in p for p in confere("t", "Noticiado na última quinta-feira, 27 de agosto.",
+                                         N, "", HOJE, date(2026, 8, 27)))
+assert any("recomende" in p for p in c("t", "Isso pode incentivar a antecipação de compras de moeda."))
+assert any("sinal" in p for p in c("t", "Revertendo a deflação de -0,32% de agosto."))
+print("conferente (recortes): ok")
 
