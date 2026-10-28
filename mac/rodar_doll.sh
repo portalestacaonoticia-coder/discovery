@@ -26,8 +26,20 @@ MODO="${RADAR_MODO:-ensaio}"
 echo "=== $(date '+%d/%m/%Y %H:%M') — doll, modo $MODO ==="
 
 # Sem o exo de pe' nao adianta rodar: tudo cairia no fallback sem texto.
+# Aviso no Mac quando o exo falha 2 rodadas seguidas (24-25/10/2026: travou
+# as 19:55 e so' foi notado na manha seguinte). Avisa de novo a cada 2 horas.
+FALHAS_EXO=/tmp/radar-doll.falhas-exo
+avisa_exo() {
+  n=$(( $(cat "$FALHAS_EXO" 2>/dev/null || echo 0) + 1 ))
+  echo "$n" > "$FALHAS_EXO"
+  if [ "$n" -ge 2 ] && [ $(( (n - 2) % 4 )) -eq 0 ]; then
+    osascript -e "display notification \"$1 ha' $n rodadas (o doll nao publica). Reinicie o EXO nos dois Macs.\" with title \"Radar do doll\" sound name \"Basso\"" >/dev/null 2>&1 || true
+  fi
+}
+
 if ! curl -sf -m 10 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/models" >/dev/null; then
   echo "exo fora do ar em ${LLM_LOCAL_URL:-http://localhost:52415/v1} — nada rodou"
+  avisa_exo "o exo esta' fora do ar"
   exit 0
 fi
 
@@ -41,8 +53,10 @@ TESTE=$(curl -sf -m 120 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/chat/comple
   | "$PY" -c "import json,sys; print(json.load(sys.stdin)['choices'][0]['message']['content'].strip()[:20])" 2>/dev/null)
 if [ -z "$TESTE" ]; then
   echo "exo de pe' mas nao gera texto (travado?) — nada rodou; reinicie o EXO nos dois Macs"
+  avisa_exo "o exo esta' de pe' mas nao gera texto"
   exit 0
 fi
+rm -f "$FALHAS_EXO"
 
 if [ "$MODO" = "publicar" ]; then
   $PY -m radar.principal --site doll || true

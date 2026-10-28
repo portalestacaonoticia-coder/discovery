@@ -47,11 +47,14 @@ def _get(url: str, params: dict | None = None, prazo: int = 60):
     if params:
         url += ("&" if "?" in url else "?") + urlencode(
             params, quote_via=quote, safe="$@'(),:/")
-    try:
-        r = requests.get(url, headers=CABECALHO, timeout=prazo)
-        return r.json() if r.ok else None
-    except (requests.RequestException, ValueError):
-        return None
+    for _ in range(2):   # a API do BC as vezes demora ou falha: 1 nova tentativa
+        try:
+            r = requests.get(url, headers=CABECALHO, timeout=prazo)
+            if r.ok:
+                return r.json()
+        except (requests.RequestException, ValueError):
+            pass
+    return None
 
 
 def _sgs(serie: int, inicio: date, fim: date) -> list[tuple[date, float]]:

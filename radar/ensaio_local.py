@@ -69,6 +69,8 @@ def escreve_satelite(pt: dict, nome: str, site: dict, banco: Banco) -> tuple[dic
     # titulos desta rodada contam como recentes, como na esteira (satelites.py)
     art = monta(pt, serie, url_ancora, site,
                 [{"titulo": t} for t in _TITULOS_DA_RODADA] + banco.artigos_recentes(nome))
+    if art.get("por") == "falhou":
+        return None, f"FALHOU (nada publicado) — {art.get('motivo')}"
     _TITULOS_DA_RODADA.insert(0, art["titulo"])
     # monta cai no TEMPLATE quando o modelo falha OU quando o conferente
     # reprova duas vezes: o rotulo vem do proprio artigo, nao das falhas do
