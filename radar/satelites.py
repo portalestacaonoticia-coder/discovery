@@ -96,6 +96,21 @@ def main() -> int:
             continue
         por[hub] = por.get(hub, 0) + 1
         pautas.append(p)
+
+    # No maximo 1 satelite por rodada, e so' se o ultimo saiu ha' pelo menos
+    # intervalo_min_minutos. As outras maduras esperam a proxima rodada.
+    if pautas:
+        intervalo = timedelta(minutes=int(criterios.get("intervalo_min_minutos") or 0))
+        ultimo = leitor.ultimo_satelite_publicado(SITE)
+        if ultimo and intervalo:
+            quando = datetime.fromisoformat(str(ultimo).replace("Z", "+00:00"))
+            if agora - quando < intervalo:
+                print(f"[intervalo] ultimo satelite as {quando.astimezone(FUSO_SP):%H:%M}; "
+                      f"proximo depois das {(quando + intervalo).astimezone(FUSO_SP):%H:%M} "
+                      f"({len(pautas)} madura(s) esperando)")
+                em_espera += len(pautas)
+                pautas = []
+        pautas = pautas[:1] if intervalo else pautas
     if not pautas:
         print(f"nenhuma pauta madura para virar satelite ({em_espera} em espera)")
         # Registra mesmo sem publicar: o fluxo invisivel na telemetria custou

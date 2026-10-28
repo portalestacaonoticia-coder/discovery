@@ -36,19 +36,25 @@ PADRAO = {
     # dias parado, o feed devolveu manchetes de junho, agosto e setembro e a
     # selecao aprovou 3 de 4 (o dado proprio pesa mais que o frescor).
     "idade_max_horas": 72,
+    # intervalo minimo entre dois satelites publicados (minutos). Em
+    # 20/10/2026 saíram 5 no mesmo minuto (pautas "quentes" saem na hora),
+    # 59% de texto igual entre si: padrao de conteudo em escala.
+    "intervalo_min_minutos": 90,
 }
 
 
 def criterios_com_padrao(criterios: dict | None) -> dict:
     """Mescla os criterios salvos com os padroes (salvo incompleto nao quebra)."""
     c = {k: PADRAO[k] for k in ("dado_proprio", "minimo", "quente_ate_horas",
-                                "satelites_por_hub", "idade_max_horas")}
+                                "satelites_por_hub", "idade_max_horas",
+                                "intervalo_min_minutos")}
     c["angulos"] = dict(PADRAO["angulos"])
     c["frescor"] = dict(PADRAO["frescor"])
     c["janela"] = dict(PADRAO["janela"])
     if criterios:
         for chave in ("dado_proprio", "minimo", "quente_ate_horas",
-                      "satelites_por_hub", "idade_max_horas"):
+                      "satelites_por_hub", "idade_max_horas",
+                      "intervalo_min_minutos"):
             if isinstance(criterios.get(chave), (int, float)):
                 c[chave] = criterios[chave]
         c["angulos"].update(criterios.get("angulos") or {})
