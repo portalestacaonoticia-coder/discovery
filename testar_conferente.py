@@ -133,3 +133,62 @@ for exemplo in _exemplos().split("====="):
     assert c("t", corpo), "exemplo copiado passaria no conferente"
 
 print("conferente: ok")
+
+# --- dado proprio por categoria (21/10/2026) ---------------------------------
+# cada exemplo-modelo passa no conferente com os PROPRIOS dados (extras), e
+# copiar o exemplo com os dados de outro dia e' reprovado
+from radar.gerador_satelite import _exemplos as _ex_hub
+
+
+def _n_ptax(venda, var_dia, data):
+    return {**N, "venda": venda, "var_dia": var_dia, "var_semana": None,
+            "var_mes": None, "var_janela": None, "maior": venda * 1.02,
+            "menor": venda * 0.98, "data": data}
+
+
+CASOS = {
+    "indicadores": (_n_ptax(5.3920, -0.2, date(2026, 3, 9)),
+                    {"brl": [5.48, 5.55, 5.60], "pct": [1.61, 4.10, 4.25, 4.62],
+                     "variacoes_moeda": {"revisao": -1.26}, "variacoes_outras": {},
+                     "datas": [date(2026, 3, 6), date(2026, 2, 6)]},
+                    "Focus eleva projeção do PIB e mantém câmbio",
+                    date(2026, 3, 9), date(2026, 3, 9)),
+    "politica-monetaria": (_n_ptax(5.2810, -0.31, date(2026, 2, 13)),
+                           {"brl": [], "pct": [11.25, 11.75, 0.50, 4.90, 6.35, 10.50, 10.75],
+                            "variacoes_moeda": {}, "variacoes_outras": {},
+                            "datas": [date(2026, 1, 30), date(2026, 2, 13)]},
+                           "Copom sinaliza novos cortes de juros",
+                           date(2026, 2, 13), date(2026, 2, 12)),
+    "viagem": (_n_ptax(5.3920, 0.35, date(2026, 3, 13)),
+               {"brl": [7.1240, 7.2583, 7.0815, 7.2990, 7124.0, 7373.34, 249.34],
+                "pct": [3.5], "variacoes_moeda": {"dia": 0.42, "mes": -1.85},
+                "variacoes_outras": {}, "datas": [date(2026, 3, 13)]},
+               "Dólar sobe com cautela no exterior",
+               date(2026, 3, 13), date(2026, 3, 13)),
+}
+for hub, (n_hub, extras, manchete, hoje_hub, data_m) in CASOS.items():
+    exemplo = _ex_hub(hub)
+    assert "DADOS DESTE EXEMPLO" in exemplo and hub not in ("cotacao",), hub
+    tit, corpo = exemplo.split("TITULO:", 1)[1].split("\n", 1)
+    probs = confere(tit.strip(), corpo, n_hub, manchete, hoje_hub, data_m, extras=extras)
+    assert probs == [], (hub, probs)
+    # copiado com os dados de hoje (N, sem extras da categoria): reprovado
+    assert confere(tit.strip(), corpo, N, "", HOJE, None, extras={"datas": []}), hub
+
+# direcao de moeda estrangeira e efeito no real com extras
+ex_euro = {"brl": [5.6317], "pct": [], "variacoes_moeda": {"euro no dia": -0.64},
+           "variacoes_outras": {}, "datas": []}
+assert any("direcao" in p for p in confere("t", "O euro subiu 0,64% no dia.", N, "", HOJE, None, extras=ex_euro))
+assert confere("t", "O euro caiu 0,64% no dia, a R$ 5,6317.", N, "", HOJE, None, extras=ex_euro) == []
+assert any("efeito no real" in p for p in confere(
+    "t", "O euro caiu 0,64%, com desvalorização do real.", N, "", HOJE, None, extras=ex_euro))
+print("conferente por categoria: ok")
+
+# "nesta <dia>" e atribuicao dobrada (ensaio por categoria 2)
+assert any("nesta" in p for p in confere("t", "A imprensa noticiou nesta terça-feira, 9 de junho, uma análise.",
+                                         N, "", HOJE, date(2026, 6, 9)))
+assert confere("t", "A imprensa noticiou nesta segunda-feira, 19 de outubro, uma análise.",
+               N, "", HOJE, date(2026, 10, 19)) == []
+assert any("repetida" in p for p in c("t", "Segundo a imprensa, a imprensa noticiou o Pix."))
+print("conferente (nesta / atribuicao): ok")
+

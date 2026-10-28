@@ -125,13 +125,20 @@ _RE_REAL_DESCE = re.compile(r"(negativ\w*|desfavor[aá]vel|ruim) (para|ao) o? ?r
 def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
             data_manchete: date | None,
             titulos_recentes: list[str] | None = None,
-            hoje_valido: bool = False) -> list[str]:
+            hoje_valido: bool = False, extras: dict | None = None,
+            links_permitidos: list[str] | None = None) -> list[str]:
+    """`extras` (radar/dado_categoria.py): numeros da categoria alem da PTAX —
+    brl, pct (sem direcao), variacoes_moeda (sinal conta para direcao e efeito
+    no real), variacoes_outras (so' direcao) e datas validas. Com extras, as
+    regras de faixa/extremos da PTAX (6 e 10a) nao se aplicam."""
+    extras = extras or {}
     texto = f"{titulo}\n{corpo}"
     problemas: list[str] = []
 
     # 1. Cotacoes: so' as da base, as distancias entre elas e as da manchete.
     base = [n["venda"], n["maior"], n["menor"], n["max_ano"], n["min_ano"]]
     distancias = [abs(n["venda"] - x) for x in base[1:]]
+    distancias += list(extras.get("brl") or [])
     da_manchete = [_num(m) for m in _RE_BRL.findall(manchete or "")]
     for m in _RE_BRL.finditer(texto):
         v = _num(m.group(1))
@@ -143,10 +150,13 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
     variacoes = {"no pregao": n.get("var_dia"), "na semana": n.get("var_semana"),
                  "no mes": n.get("var_mes"), "nos ultimos pregoes": n.get("var_janela")}
     variacoes = {k: v for k, v in variacoes.items() if v is not None}
+    variacoes_real = {**variacoes, **(extras.get("variacoes_moeda") or {})}
+    variacoes = {**variacoes_real, **(extras.get("variacoes_outras") or {})}
     pct_manchete = [_num(p) for p in _RE_PCT.findall(manchete or "")]
     # distancia em % ate os extremos (o prompt pede essa analise)
     pct_distancias = [abs(n["venda"] / x - 1) * 100 for x in base[1:]] \
-        + [abs(x / n["venda"] - 1) * 100 for x in base[1:]]
+        + [abs(x / n["venda"] - 1) * 100 for x in base[1:]] \
+        + [abs(x) for x in (extras.get("pct") or [])]
     for m in _RE_PCT.finditer(texto):
         v = _num(m.group(1))
         donos = [(k, x) for k, x in variacoes.items() if _bate(v, [abs(x)])]
@@ -176,7 +186,7 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
 
     # 4. Datas: so' o pregao, os extremos do ano, a manchete e hoje (hoje so'
     # quando for o proprio pregao ou o dia da manchete).
-    validas = {n["data"], n["max_quando"], n["min_quando"]}
+    validas = {n["data"], n["max_quando"], n["min_quando"], *(extras.get("datas") or [])}
     if data_manchete:
         validas.add(data_manchete)
     # a nota-reserva PODE dizer o dia de hoje ("como hoje e' domingo..."),
@@ -207,8 +217,11 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
 
     # 5. Dado nosso na boca da imprensa: frase com atribuicao nao pode trazer
     # a PTAX nem uma variacao da base (26641 do ensaio de 19/10).
+    # so' a PTAX e as variacoes do dia: numero da categoria (Focus, Selic)
+    # costuma ser o proprio assunto da manchete, e citar a fonte e' certo
     proprios = [n["venda"]]
-    proprios_pct = [abs(v) for v in variacoes.values()]
+    proprios_pct = [abs(v) for k, v in variacoes.items()
+                    if k in ("no pregao", "na semana", "no mes", "nos ultimos pregoes")]
     for frase in _frases(texto):
         if not _RE_ATRIBUI.search(frase):
             continue
@@ -224,7 +237,7 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
     # certo com a conclusao errada passava; 4 de 10 na v3 do ensaio).
     lado_faixa = posicao(n["venda"], n["menor"], n["maior"])
     lado_ano = posicao(n["venda"], n["min_ano"], n["max_ano"])
-    for frase in _frases(texto):
+    for frase in (_frases(texto) if not extras else []):
         lado = lado_ano if _RE_ANO.search(frase) else lado_faixa
         if lado == "meio":
             continue
@@ -292,7 +305,7 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
         if not diz_real:
             continue
         sentidos = {1 if x > 0 else -1 for m in _RE_PCT.findall(frase)
-                    for x in variacoes.values() if _bate(_num(m), [abs(x)])}
+                    for x in variacoes_real.values() if _bate(_num(m), [abs(x)])}
         if not sentidos and dia and abs(dia) >= 0.005 and \
                 any(_bate(_num(m), [n["venda"]]) for m in _RE_BRL.findall(frase)):
             sentidos = {1 if dia > 0 else -1}
@@ -307,7 +320,7 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
     # maio foi a minima do dolar).
     mes_min = MESES[n["min_quando"].month - 1]
     mes_max = MESES[n["max_quando"].month - 1]
-    for frase in _frases(texto):
+    for frase in (_frases(texto) if not extras else []):
         # oracao por oracao, e so' o superlativo ("nivel/ponto mais fraco"):
         # "mais forte do que no pico" e' comparativo e esta' certo
         for oracao in re.split(r",\s*mas\b|;|,\s*e\b|,", frase):
@@ -333,6 +346,13 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
         if m and dias > 2:
             problemas.append(f"\"{m.group(0)}\": a manchete e' de {data_manchete:%d/%m}, "
                              f"ha' {dias} dias; use a data")
+        # "nesta terca-feira, 9 de junho" para manchete de meses atras (ensaio
+        # por categoria, 21/10/2026): "nesta/desta" e' da semana corrente
+        m = re.search(r"\b(n|d)est[ae]s?\s+(segunda|ter[cç]a|quarta|quinta|sexta)"
+                      r"(-feira)?|\b(n|d)es[st]e\s+(s[aá]bado|domingo)\b", texto, re.I)
+        if m and dias > 6:
+            problemas.append(f"\"{m.group(0)}\": a manchete e' de {data_manchete:%d/%m}, "
+                             f"ha' {dias} dias; diga a data sem 'nesta'")
         m = re.search(r"\b(semana passada|\w+-feira passada|s[aá]bado passado|"
                       r"domingo passado|recentemente)\b", texto, re.I)
         if m and dias > 7:
@@ -347,6 +367,65 @@ def confere(titulo: str, corpo: str, n: dict, manchete: str, hoje: date,
             problemas.append(f"titulo quase igual a um ja' usado (\"{outro[:70]}\"); "
                              "escreva outro, com outra estrutura")
             break
+
+    # 12. Ensaio por categoria (21/10/2026): 2 de 17 textos ignoraram os dados,
+    # com lista de topicos e link inventado (doll.com.br/guia-cambio).
+    if links_permitidos is not None:
+        ok = {u.rstrip("/") for u in links_permitidos if u}
+        for u in re.findall(r"\]\((https?://[^)\s]+)\)", texto):
+            if u.rstrip("/") not in ok:
+                problemas.append(f"link {u} nao foi fornecido; o unico link e' o da "
+                                 "pagina-guia indicada")
+    if re.search(r"^\s*([-*•]|\d+[.)])\s+\S", corpo or "", re.M):
+        problemas.append("nada de lista de topicos: escreva em paragrafos")
+    chaves = [x for x in (extras.get("brl") or []) + (extras.get("pct") or []) if x]
+    texto_inteiro = len((corpo or "").split()) >= 150   # trechos curtos (testes) nao contam
+    if not texto_inteiro:
+        pass
+    elif extras and chaves:
+        usados = {round(_num(m), 2) for m in _RE_BRL.findall(texto) + _RE_PCT.findall(texto)}
+        achados = {x for x in chaves if _bate(round(x, 2), list(usados))
+                   or any(_bate(u, [x]) for u in usados)}
+        if len(achados) < 3:
+            problemas.append("o texto quase nao usa os dados fornecidos: o assunto e' o "
+                             "dado da categoria; use os numeros dados")
+    elif not extras and not any(_bate(_num(m), [n["venda"]]) for m in _RE_BRL.findall(texto)):
+        problemas.append(f"o texto nao traz a PTAX do dia ({brl(n['venda'], 4)})")
+    # fonte errada para o IPCA (ensaio: "dados ... da Fundacao Getulio Vargas")
+    m = re.search(r"\bFGV\b|Get[uú]lio Vargas", texto)
+    if m and not re.search(r"\bFGV\b|Get[uú]lio Vargas", manchete or ""):
+        problemas.append(f"\"{m.group(0)}\": nenhum dado fornecido e' da FGV (o IPCA e' do IBGE)")
+    # faixa de ~1 mes chamada de "12 meses"/"do ano" (viagem, ensaio)
+    faixa = [x for x in (extras.get("faixa_30d") or []) if x]
+    for frase in (_frases(texto) if faixa else []):
+        if any(_bate(_num(m), faixa) for m in _RE_BRL.findall(frase)) and \
+                re.search(r"12 meses|doze meses|\bdo ano\b|anual|\bno ano\b", frase, re.I):
+            problemas.append("a faixa de minima e maxima e' de cerca de um mes (22 pregoes), "
+                             f"nao do ano: \"{frase.strip()[:90]}\"")
+    # projecao do mercado x PTAX (titulo "dolar a R$ 5,13 no fim de 2026, abaixo da PTAX"
+    # com a projecao ACIMA da PTAX)
+    proj = extras.get("projecao")
+    if proj:
+        acima = proj > n["venda"]
+        for frase in _frases(texto):
+            m1 = re.search(r"(acima|abaixo) da (PTAX|cota[cç][aã]o (atual|de hoje|do dia))", frase, re.I)
+            if m1 and re.search(r"proje|Focus|mercado|mediana|R\$ ?\d", frase[:m1.start()], re.I) \
+                    and not re.search(r"PTAX[^.]{0,40}$", frase[:m1.start()], re.I):
+                if (m1.group(1).lower() == "acima") != acima:
+                    problemas.append(f"a projecao ({brl(proj, 2)}) esta' "
+                                     f"{'ACIMA' if acima else 'ABAIXO'} da PTAX "
+                                     f"({brl(n['venda'], 4)}): \"{frase.strip()[:80]}\"")
+            m2 = re.search(r"(PTAX|cota[cç][aã]o atual|cota[cç][aã]o de hoje)[^.]{0,80}?"
+                           r"(acima|abaixo) d[ao] (proje|expectativa|mediana)", frase, re.I)
+            if m2 and (m2.group(2).lower() == "abaixo") != acima:
+                problemas.append(f"a PTAX ({brl(n['venda'], 4)}) esta' "
+                                 f"{'ABAIXO' if acima else 'ACIMA'} da projecao "
+                                 f"({brl(proj, 2)}): \"{frase.strip()[:80]}\"")
+
+    # atribuicao dobrada ("Segundo a imprensa, a imprensa noticiou")
+    m = re.search(r"segundo a imprensa,?\s+a imprensa", texto, re.I)
+    if m:
+        problemas.append(f"\"{m.group(0)}\": atribuicao repetida")
 
     # 11. Estilo.
     for padrao, porque in _PROIBIDOS:
