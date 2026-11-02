@@ -11,7 +11,9 @@ do hub e publica. Cada pauta vira 'publicada' depois — nao se repete.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -23,6 +25,37 @@ from .pontua import criterios_com_padrao, teto_do_hub, velha
 
 SITE = "doll"
 SAIDA = RAIZ / "saida"
+# Pauta reprovada nao segura a fila (02/11/2026: a 32860, reprovada por titulo
+# repetido, era a primeira da fila em toda rodada e as outras 5 nunca eram
+# tentadas). Reprovada 3x, sai da fila; ate' 3 pautas tentadas por rodada.
+ARQ_REPROVADAS = SAIDA / "llm-falhas" / "satelites-reprovadas.json"
+MAX_REPROVACOES = 3
+MAX_TENTATIVAS_RODADA = 3
+
+
+def le_reprovadas() -> dict[str, int]:
+    try:
+        return json.loads(ARQ_REPROVADAS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def grava_reprovadas(reprovadas: dict[str, int], candidatas: list[dict]) -> None:
+    """So' guarda as pautas que ainda estao na fila."""
+    vivas = {str(p["id"]) for p in candidatas}
+    ARQ_REPROVADAS.parent.mkdir(parents=True, exist_ok=True)
+    ARQ_REPROVADAS.write_text(json.dumps({k: v for k, v in reprovadas.items() if k in vivas}),
+                              encoding="utf-8")
+
+
+def desistiu(pauta: dict, reprovadas: dict[str, int]) -> bool:
+    return reprovadas.get(str(pauta["id"]), 0) >= MAX_REPROVACOES
+
+
+def falha_da_pauta(motivo: str | None) -> bool:
+    """Reprovada ou sem dado: a culpa e' da pauta, tenta a proxima. Modelo fora
+    do ar: as proximas falhariam igual, depois de ate' 20 min cada."""
+    return bool(re.search(r"reprovado|indisponivel", motivo or ""))
 FUSO_SP = timezone(timedelta(hours=-3))
 
 
@@ -75,7 +108,11 @@ def main() -> int:
     agora = datetime.now(FUSO_SP)
     criterios = criterios_com_padrao((leitor.meta_do_site(SITE) or {}).get("criterios"))
     pautas, em_espera = [], 0
+    reprovadas = le_reprovadas()
     for p in candidatas:
+        if desistiu(p, reprovadas):
+            print(f"[desistiu] pauta {p['id']}: reprovada {MAX_REPROVACOES}x, fora da fila")
+            continue
         # pauta aprovada antes do corte de idade (ou que envelheceu esperando
         # o horario) nao vira satelite: o gancho seria noticia velha
         publicado = (p.get("itens") or {}).get("publicado_em")
@@ -122,7 +159,9 @@ def main() -> int:
                       f"({len(pautas)} madura(s) esperando)")
                 em_espera += len(pautas)
                 pautas = []
-        pautas = pautas[:1] if intervalo else pautas
+    so_uma = bool(criterios.get("intervalo_min_minutos"))
+    if so_uma:
+        pautas = pautas[:MAX_TENTATIVAS_RODADA]
     if not pautas:
         print(f"nenhuma pauta madura para virar satelite ({em_espera} em espera)")
         # Registra mesmo sem publicar: o fluxo invisivel na telemetria custou
@@ -152,6 +191,11 @@ def main() -> int:
             # sem template: a pauta segue aprovada e tenta de novo na proxima rodada
             print(f"[falhou] pauta {pt['id']} ({pt.get('hub')}): {art.get('motivo')} "
                   "— fica para a proxima rodada")
+            if not falha_da_pauta(art.get("motivo")):
+                break
+            if not args.seco and "reprovado" in art["motivo"]:
+                reprovadas[str(pt["id"])] = reprovadas.get(str(pt["id"]), 0) + 1
+                grava_reprovadas(reprovadas, candidatas)
             continue
         # o proximo satelite da rodada tambem nao pode repetir este titulo
         # (sem url: nao entra no Leia tambem, so' na lista de titulos)
@@ -200,6 +244,8 @@ def main() -> int:
                 print(f"  no ar: {resultado.get('link')}")
             except (ErroWordPress, KeyError) as erro:
                 print(f"  falha ao publicar {ref}: {erro}")
+        if so_uma:
+            break
 
     if args.seco and pautas:
         # Mostra um satelite inteiro para conferir a qualidade.
