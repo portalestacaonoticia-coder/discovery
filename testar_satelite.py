@@ -35,3 +35,20 @@ art, motivo = g._monta_llm({**PAUTA, "hub": "viagem"}, SERIE, "https://doll.com.
 assert art is None and "indisponivel" in motivo and not chamou, (art, motivo, chamou)
 
 print("satelite (falha sem template, sem recair na PTAX): ok")
+
+# 4. pauta reprovada nao segura a fila (02/11/2026, pauta 32860)
+import tempfile
+from pathlib import Path
+import radar.satelites as s
+
+s.ARQ_REPROVADAS = Path(tempfile.mkdtemp()) / "x" / "reprovadas.json"
+assert s.le_reprovadas() == {}
+fila = [{"id": 1}, {"id": 2}]
+s.grava_reprovadas({"1": 3, "2": 1, "99": 3}, fila)
+reprovadas = s.le_reprovadas()
+assert reprovadas == {"1": 3, "2": 1}, reprovadas   # a 99 ja' saiu da fila
+assert s.desistiu({"id": 1}, reprovadas) and not s.desistiu({"id": 2}, reprovadas)
+assert s.falha_da_pauta("reprovado 2x: titulo quase igual")
+assert s.falha_da_pauta("dado da categoria viagem indisponivel")
+assert not s.falha_da_pauta("o exo devolveu resposta vazia (2x)")
+print("satelite (reprovada nao segura a fila): ok")
