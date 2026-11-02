@@ -58,11 +58,37 @@ if [ -z "$TESTE" ]; then
 fi
 rm -f "$FALHAS_EXO"
 
+# Prazo por etapa (29/10/2026: a rodada das 15:38 ficou presa e nenhuma outra
+# rodou ate' o reinicio de 01/11). Sem buffer: o log mostra onde parou.
+export PYTHONUNBUFFERED=1
+PRAZO_ETAPA="${RADAR_PRAZO_ETAPA:-5400}"
+com_prazo() {
+  "$@" &
+  local alvo=$! decorrido=0
+  (
+    while kill -0 "$alvo" 2>/dev/null; do
+      sleep 5
+      decorrido=$((decorrido + 5))
+      if [ "$decorrido" -ge "$PRAZO_ETAPA" ]; then
+        echo "etapa presa ha' $PRAZO_ETAPA s, encerrando: $*"
+        osascript -e "display notification \"Uma etapa do doll ficou presa e foi encerrada.\" with title \"Radar do doll\" sound name \"Basso\"" >/dev/null 2>&1 || true
+        kill -TERM "$alvo" 2>/dev/null
+        sleep 30
+        kill -KILL "$alvo" 2>/dev/null
+        exit 0
+      fi
+    done
+  ) &
+  local vigia=$!
+  wait "$alvo"
+  wait "$vigia"
+}
+
 if [ "$MODO" = "publicar" ]; then
-  $PY -m radar.principal --site doll || true
-  $PY -m radar.satelites || true
-  $PY -m radar.publicar --site doll || true
-  $PY -m radar.reserva || true
+  com_prazo $PY -m radar.principal --site doll || true
+  com_prazo $PY -m radar.satelites || true
+  com_prazo $PY -m radar.publicar --site doll || true
+  com_prazo $PY -m radar.reserva || true
 else
   # So' leitura: mesma pauta, texto local x texto no ar, para revisar.
   $PY -m radar.ensaio_local --site doll --limite "${RADAR_ENSAIO_LIMITE:-10}" || true
