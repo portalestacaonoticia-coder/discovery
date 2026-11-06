@@ -23,6 +23,21 @@ def sem_acento(texto: str) -> str:
                    if unicodedata.category(c) != "Mn")
 
 
+# A busca da OpenAI poe utm_source=openai nas URLs que devolve; nunca vai para
+# post. Tira so' este parametro: o `&` pode vir como `&amp;` ou `&#038;` no HTML.
+_FIM_DO_VALOR = r"(?!\.?[\w%~-])"   # nao pega utm_source=openai.com nem openai-x
+_SEPARADOR = r"(?:&amp;|&#0?38;|&)"
+_UTM_OPENAI_PRIMEIRO = re.compile(rf"\?utm_source=openai{_FIM_DO_VALOR}({_SEPARADOR})?", re.I)
+_UTM_OPENAI_SEGUINTE = re.compile(rf"{_SEPARADOR}utm_source=openai{_FIM_DO_VALOR}", re.I)
+
+
+def remove_utm_openai(texto: str) -> str:
+    if not texto:
+        return texto
+    texto = _UTM_OPENAI_PRIMEIRO.sub(lambda m: "?" if m.group(1) else "", texto)
+    return _UTM_OPENAI_SEGUINTE.sub("", texto)
+
+
 def normaliza_titulo(titulo: str) -> str:
     t = sem_acento(titulo.lower())
     t = re.sub(r"[^a-z0-9\s]", " ", t)

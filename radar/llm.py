@@ -34,6 +34,7 @@ import re
 import requests
 
 from .config import env
+from .normaliza import remove_utm_openai
 
 # Modelo unico de geracao de artigos. Trocar aqui muda todas as esteiras.
 MODELO_LLM = "gpt-5.6-luna"
@@ -202,7 +203,7 @@ def _texto_e_citacoes(saida) -> tuple[str, list[dict], int]:
                     for a in c.get("annotations") or []:
                         if not isinstance(a, dict) or a.get("type") != "url_citation":
                             continue
-                        url = (a.get("url") or "").strip()
+                        url = remove_utm_openai((a.get("url") or "").strip())
                         if not url:
                             continue
                         chave = url.rstrip("/")
@@ -218,7 +219,7 @@ def _texto_e_citacoes(saida) -> tuple[str, list[dict], int]:
             buscas += 1
             if item.get("status") == "failed":
                 _registra_falha("busca na web falhou")
-    return "".join(partes).strip(), citacoes, buscas
+    return remove_utm_openai("".join(partes)).strip(), citacoes, buscas
 
 
 def tira_raciocinio(texto: str) -> str:

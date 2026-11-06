@@ -22,6 +22,8 @@ import unicodedata
 
 import requests
 
+from .normaliza import remove_utm_openai
+
 TEMPO_LIMITE = 30
 TEMPO_LIMITE_MIDIA = 60      # upload de imagem e' mais lento que um POST de texto
 
@@ -309,7 +311,7 @@ def publica(artigo: dict, wp: dict, site: dict | None = None,
 
     corpo = {
         "title": artigo["titulo"],
-        "content": markdown_para_html(artigo["corpo_md"]),
+        "content": remove_utm_openai(markdown_para_html(artigo["corpo_md"])),
         "excerpt": (artigo.get("resumo") or "")[:300],
         "status": "publish" if artigo["status"] == "publicada" else "draft",
         # O JSON-LD vai em meta, nao no corpo: o WordPress limpa <script> do
