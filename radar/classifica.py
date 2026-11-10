@@ -78,7 +78,7 @@ def avalia(titulo: str, resumo: str, site: dict) -> dict:
             "hub": leitura.get("hub"),
             "lugar": leitura.get("lugar"),
             "publico": leitura.get("publico") or "o publico do site",
-            "prioridade": int(leitura.get("prioridade") or 0),
+            "prioridade": llm.nota(leitura.get("prioridade")),
         }
     hub, pontos = classifica_por_termo(titulo, site)
     return {"relevante": pontos > 0, "hub": hub, "lugar": None,

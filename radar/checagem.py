@@ -170,8 +170,8 @@ def checa_ia(artigo: dict, brief: dict, evidencias: dict) -> dict | None:
     fc = d.get("factcheck") if isinstance(d.get("factcheck"), dict) else {}
     risco = str(fc.get("risco") or "medio").lower()
     return {
-        "qualidade_score": int(d.get("qualidade_score") or 0),
-        "tom_score": int(d.get("tom_score") or 0),
+        "qualidade_score": llm.nota(d.get("qualidade_score")),
+        "tom_score": llm.nota(d.get("tom_score")),
         "entrega_promessa": bool(d.get("entrega_promessa")),
         "factcheck": {"risco": risco if risco in ("baixo", "medio", "alto") else "medio",
                       "observacoes": [str(o)[:300] for o in (fc.get("observacoes") or [])][:10]},
