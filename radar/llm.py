@@ -265,6 +265,30 @@ def extrai_json(texto: str) -> str | None:
         return None
 
 
+# Nota pedida como numero que o modelo devolve em palavras. Em 10/11/2026 o
+# Qwen respondeu "prioridade": "Alta, devido a' variacao de 1%..." e o int()
+# derrubou a coleta inteira do doll.
+_NOTA_EM_PALAVRA = (("alt", 8), ("med", 5), ("baix", 2))
+
+
+def nota(valor, padrao: int = 0) -> int:
+    """Inteiro de um campo que deveria ser numero: 7, 7.5, "7", "7/10" ou,
+    em palavras, alta/media/baixa. O resto vira `padrao`."""
+    if isinstance(valor, bool):
+        return padrao
+    if isinstance(valor, (int, float)):
+        return int(round(valor))
+    texto = str(valor or "").strip().lower()
+    achado = re.match(r"-?\d+(?:[.,]\d+)?", texto)
+    if achado:
+        return int(round(float(achado.group(0).replace(",", "."))))
+    texto = texto.replace("é", "e").replace("á", "a")
+    for prefixo, valor_nota in _NOTA_EM_PALAVRA:
+        if texto.startswith(prefixo):
+            return valor_nota
+    return padrao
+
+
 def _gera_local(prompt: str, sistema: str | None, max_tokens: int,
                 json_obj: bool) -> str | None:
     """Chama o exo e, se a resposta vier VAZIA (sem erro, sem texto), tenta

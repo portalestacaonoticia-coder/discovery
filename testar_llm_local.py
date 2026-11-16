@@ -145,6 +145,21 @@ def main():
     os.environ.pop("RADAR_IGNORA_SITES")
     confere("sem variavel: todos", site_ativo("doll") and site_ativo("broune"))
 
+    print("nota em texto (10/11/2026)")
+    confere("frase com 'Alta' -> 8", llm.nota(
+        "Alta, devido à variação significativa de 1% e à proximidade com a marca de R$ 5,60") == 8)
+    confere("'média' -> 5 e 'baixa' -> 2", llm.nota("média") == 5 and llm.nota("Baixa") == 2)
+    confere("7, '7', '7/10' e 7.6 -> numero",
+            [llm.nota(7), llm.nota("7"), llm.nota("7/10"), llm.nota(7.6)] == [7, 7, 7, 8])
+    confere("None, True e texto sem nota -> padrao",
+            [llm.nota(None), llm.nota(True), llm.nota("relevante")] == [0, 0, 0])
+    from radar import classifica
+    llm.tem_chave = lambda: True
+    llm.gera = lambda *a, **k: json.dumps({"relevante": True, "hub": "cotacao",
+                                           "prioridade": "Alta, devido a' variacao de 1%"})
+    leitura = classifica.avalia("Dolar sobe 1%", "", {"entidade": "cambio", "hubs": []})
+    confere("avalia nao quebra com prioridade em texto", leitura["prioridade"] == 8)
+
     print("\n" + ("TUDO OK" if not falhas else f"{len(falhas)} FALHA(S)"))
     return 1 if falhas else 0
 
