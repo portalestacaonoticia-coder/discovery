@@ -14,7 +14,9 @@ radar/
 ├── radar/
 │   ├── config.py           ← le sites.yaml e .env; `site_ativo` decide se o site roda
 │   │                         NESTE ambiente (metas.ambiente, escolhido na tela
-│   │                         Radar do conteudo.tihee, x RADAR_AMBIENTE)
+│   │                         Radar do conteudo.tihee, x RADAR_AMBIENTE);
+│   │                         `site_ligado` e' o botao liga/desliga da mesma tela
+│   │                         (metas.ligado): desligado, nao roda em lugar nenhum
 │   ├── fontes.py           ← coletores: rss, google_news, sitemap_news.
 │   │                         So' titulo/URL/data/resumo — nunca texto integral alheio.
 │   ├── normaliza.py        ← titulo normalizado, URL canonica e hash de dedup.

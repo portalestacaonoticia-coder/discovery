@@ -140,6 +140,8 @@ def main():
     from radar import config as cfg
     original = cfg._ambientes_dos_sites
     cfg._ambientes_dos_sites = lambda: None       # sem banco (o .env local pode ter um)
+    original_desligados = cfg._sites_desligados
+    cfg._sites_desligados = lambda: None          # idem: nada desligado ate' o bloco do botao
     os.environ["RADAR_SITES"] = "doll"
     confere("lista branca local: so' o doll", filtra_sites({"doll": {}, "broune": {}}) == {"doll": {}})
     os.environ.pop("RADAR_SITES")
@@ -159,8 +161,20 @@ def main():
         raise RuntimeError("banco fora")
     cfg._ambientes_dos_sites = _quebra
     confere("banco fora: ninguem roda", not site_ativo("doll") and not site_ativo("broune"))
-    cfg._ambientes_dos_sites = original
+    # botao liga/desliga da tela Radar (metas.ligado): vale nos dois ambientes
+    cfg._ambientes_dos_sites = lambda: {"doll": "mac", "7d": "mac", "broune": "nuvem"}
+    cfg._sites_desligados = lambda: {"7d", "broune"}
+    confere("desligado na tela: nao roda no Mac", site_ativo("doll") and not site_ativo("7d"))
     os.environ.pop("RADAR_AMBIENTE")
+    confere("desligado na tela: nao roda na nuvem",
+            not site_ativo("broune") and site_ativo("site-sem-meta"))
+    confere("site_ligado nao olha o ambiente", cfg.site_ligado("doll") and not cfg.site_ligado("7d"))
+    cfg._sites_desligados = _quebra
+    confere("banco fora: conta como desligado", not cfg.site_ligado("doll"))
+    cfg._sites_desligados = lambda: None
+    confere("sem banco: tudo ligado", cfg.site_ligado("7d"))
+    cfg._sites_desligados = original_desligados
+    cfg._ambientes_dos_sites = original
 
     print("nota em texto (10/11/2026)")
     confere("frase com 'Alta' -> 8", llm.nota(

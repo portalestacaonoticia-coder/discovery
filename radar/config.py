@@ -51,6 +51,38 @@ def _ambientes_dos_sites() -> dict[str, str] | None:
     return _ambientes_cache
 
 
+_desligados_cache: set[str] | None = None
+
+
+def _sites_desligados() -> set[str] | None:
+    """Sites desligados na tela Radar (metas.ligado = false), lidos uma vez
+    por processo. None = sem banco configurado (teste offline): nao ha' tela
+    que desligue nada."""
+    global _desligados_cache
+    if _desligados_cache is None:
+        if not (env("SUPABASE_URL") and env("SUPABASE_SERVICE_KEY")):
+            return None
+        from .banco import Banco
+        _desligados_cache = Banco().sites_desligados()
+    return _desligados_cache
+
+
+def site_ligado(nome: str) -> bool:
+    """O botao liga/desliga do site na tela Radar do conteudo.tihee
+    (metas.ligado; site sem linha em metas = ligado). Desligado, o site nao
+    coleta, nao escreve e nao publica em NENHUM ambiente, a partir da rodada
+    seguinte; religar devolve tudo como estava (meta, periodo, onde roda).
+
+    Se o banco nao responder, conta como desligado: melhor uma rodada perdida
+    que publicar num site que a pessoa mandou parar."""
+    try:
+        desligados = _sites_desligados()
+    except Exception as erro:
+        print(f"  aviso: nao li se {nome} esta' ligado ({str(erro)[:120]}) — nao roda nesta rodada")
+        return False
+    return desligados is None or nome not in desligados
+
+
 def site_ativo(nome: str) -> bool:
     """Este ambiente roda o site?
 
@@ -70,6 +102,9 @@ def site_ativo(nome: str) -> bool:
     so = _lista_env("RADAR_SITES")
     if so and nome not in so:
         return False
+    # Botao liga/desliga da tela Radar: vale antes de qualquer ambiente.
+    if not site_ligado(nome):
+        return False
     try:
         ambientes = _ambientes_dos_sites()
     except Exception as erro:
@@ -84,5 +119,5 @@ def filtra_sites(sites: dict) -> dict:
     """Os sites do dict que este ambiente roda (ver site_ativo)."""
     ignorados = [n for n in sites if not site_ativo(n)]
     if ignorados:
-        print(f"  (fora deste ambiente: {', '.join(ignorados)})")
+        print(f"  (fora deste ambiente ou desligados na tela Radar: {', '.join(ignorados)})")
     return {n: c for n, c in sites.items() if site_ativo(n)}

@@ -20,7 +20,7 @@ import os
 
 from .alerta import avisa
 from .banco import Banco
-from .config import RAIZ, carrega_sites
+from .config import RAIZ, carrega_sites, site_ligado
 from .gerador_dolar import monta
 from .ptax import SemCotacao, cotacao_do_dia, cotacoes_do_periodo
 
@@ -81,6 +81,11 @@ def main() -> int:
                    help="gera e grava, mas nao manda para o WordPress")
     args = p.parse_args()
 
+    # Botao liga/desliga da tela Radar. So' ele: este fluxo nao olha ONDE o
+    # site roda (o artigo de cotacao sai pelo dolar.yml mesmo com o doll no Mac).
+    if not site_ligado(SITE):
+        print(f"{SITE} esta' desligado na tela Radar")
+        return 0
     site = carrega_sites()[SITE]
     banco = Banco(seco=args.seco)
 
