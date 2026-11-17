@@ -20,13 +20,18 @@ fi
 trap 'rmdir "$TRAVA"' EXIT
 
 set -a; [ -f .env ] && . ./.env; set +a
-export RADAR_SITES=doll
 # Este ambiente e' o MAC: so' roda site que a tela Radar do conteudo.tihee
 # marcou como 'mac' (metas.ambiente; ver radar/config.py:site_ativo).
 export RADAR_AMBIENTE=mac
 PY=.venv/bin/python
 MODO="${RADAR_MODO:-ensaio}"
-echo "=== $(date '+%d/%m/%Y %H:%M') — doll, modo $MODO ==="
+echo "=== $(date '+%d/%m/%Y %H:%M') — rodada do Mac, modo $MODO ==="
+
+# A tela Qwen do conteudo.tihee acompanha a rodada pelo banco (radar/cluster.py):
+# inicio, etapa em curso, resultado do teste do exo e fim. So' no modo publicar.
+cluster() { [ "$MODO" = "publicar" ] && $PY -m radar.cluster "$@" || true; }
+cluster rodada inicio
+trap 'cluster rodada fim; rmdir "$TRAVA"' EXIT
 
 # Sem o exo de pe' nao adianta rodar: tudo cairia no fallback sem texto.
 # Aviso no Mac quando o exo falha 2 rodadas seguidas (24-25/10/2026: travou
@@ -43,6 +48,7 @@ avisa_exo() {
 if ! curl -sf -m 10 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/models" >/dev/null; then
   echo "exo fora do ar em ${LLM_LOCAL_URL:-http://localhost:52415/v1} — nada rodou"
   avisa_exo "o exo esta' fora do ar"
+  cluster teste falha
   exit 0
 fi
 
@@ -84,9 +90,11 @@ TESTE=$(curl -sf -m 120 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/chat/comple
 if [ -z "$TESTE" ]; then
   echo "exo de pe' mas nao gera texto (travado?) — nada rodou; reinicie o EXO nos dois Macs"
   avisa_exo "o exo esta' de pe' mas nao gera texto"
+  cluster teste falha
   exit 0
 fi
 rm -f "$FALHAS_EXO"
+cluster teste ok
 
 # Prazo por etapa (29/10/2026: a rodada das 15:38 ficou presa e nenhuma outra
 # rodou ate' o reinicio de 01/11). Sem buffer: o log mostra onde parou.
@@ -115,25 +123,36 @@ com_prazo() {
 }
 
 if [ "$MODO" = "publicar" ]; then
-  com_prazo $PY -m radar.principal --site doll || true
-  com_prazo $PY -m radar.satelites || true
-  com_prazo $PY -m radar.publicar --site doll || true
-  com_prazo $PY -m radar.reserva || true
-
-  # 7d (17/11/2026): mesma rodada, mesma trava, DEPOIS do doll — o cluster
-  # atende um pedido por vez e o doll nunca fica sem a vez dele. As pautas
-  # vem planejadas (tabela ideias, status 'marcada', com os fatos ja'
-  # apurados em detalhes.fatos); o modelo local so' escreve. Poucas por
-  # rodada (RADAR_IDEIAS_POR_RODADA) para a rodada caber nos 30 min.
-  # So' roda com a senha de aplicativo do WP no .env: sem ela nada sairia.
-  if [ -n "${WP_7D_USUARIO:-}" ] && [ -n "${WP_7D_SENHA:-}" ]; then
-    echo "--- 7d ---"
-    export RADAR_IDEIAS_POR_RODADA="${RADAR_IDEIAS_POR_RODADA:-2}"
-    com_prazo env RADAR_SITES=7d $PY -m radar.motor --site 7d || true
-    com_prazo env RADAR_SITES=7d $PY -m radar.publicar --site 7d || true
-  fi
+  # Quem roda, e em que ordem, vem do cadastro da tela Qwen (cluster_apps):
+  # blogs sem pausa, marcados para o Mac e com a senha do WP no .env, por
+  # prioridade. Todos na mesma rodada e sob a mesma trava — o cluster atende
+  # um pedido por vez. Sem conseguir ler o cadastro, ninguem roda.
+  BLOGS=$($PY -m radar.cluster blogs) || BLOGS=""
+  [ -z "$BLOGS" ] && echo "nenhum blog para rodar nesta rodada"
+  while read -r SITE POR_RODADA; do
+    [ -z "$SITE" ] && continue
+    echo "--- $SITE ---"
+    if [ "$SITE" = "doll" ]; then
+      # O doll tem base propria (PTAX) e esteira dedicada.
+      cluster etapa "doll: coleta e pautas"
+      com_prazo env RADAR_SITES=doll $PY -m radar.principal --site doll || true
+      cluster etapa "doll: satelites"
+      com_prazo env RADAR_SITES=doll $PY -m radar.satelites || true
+      cluster etapa "doll: guias"
+      com_prazo env RADAR_SITES=doll $PY -m radar.publicar --site doll || true
+      com_prazo env RADAR_SITES=doll $PY -m radar.reserva || true
+    else
+      # Blogs de pauta planejada (7d): as pautas chegam na tabela ideias ja'
+      # 'marcada', com os fatos apurados; o modelo local so' escreve. Poucas
+      # por rodada, para a rodada caber nos 30 min e ninguem ficar sem a vez.
+      cluster etapa "$SITE: pautas e brief"
+      com_prazo env RADAR_SITES="$SITE" RADAR_IDEIAS_POR_RODADA="$POR_RODADA" $PY -m radar.motor --site "$SITE" || true
+      cluster etapa "$SITE: escrevendo e publicando"
+      com_prazo env RADAR_SITES="$SITE" $PY -m radar.publicar --site "$SITE" || true
+    fi
+  done <<< "$BLOGS"
 else
   # So' leitura: mesma pauta, texto local x texto no ar, para revisar.
-  $PY -m radar.ensaio_local --site doll --limite "${RADAR_ENSAIO_LIMITE:-10}" || true
+  RADAR_SITES=doll $PY -m radar.ensaio_local --site doll --limite "${RADAR_ENSAIO_LIMITE:-10}" || true
 fi
 echo "=== fim $(date '+%H:%M') ==="
