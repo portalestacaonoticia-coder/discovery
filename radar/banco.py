@@ -241,6 +241,17 @@ class Banco:
         r = self.cliente.table("metas").select("site,ambiente").execute()
         return {l["site"]: (l.get("ambiente") or "nuvem") for l in (r.data or [])}
 
+    def sites_desligados(self) -> set[str]:
+        """Sites com o botao liga/desliga da tela Radar em DESLIGADO
+        (metas.ligado = false). select("*") de proposito: num banco ainda sem
+        a coluna (sql/ligado-2026-11.sql) todo site conta como ligado, em vez
+        de a consulta falhar e parar todos. Erro de leitura SOBE: quem chama
+        (config.site_ligado) decide nao rodar."""
+        if self.seco or not self.cliente:
+            return set()
+        r = self.cliente.table("metas").select("*").execute()
+        return {l["site"] for l in (r.data or []) if l.get("ligado") is False}
+
     def meta_do_site(self, site: str) -> dict | None:
         if self.seco or not self.cliente:
             return None
