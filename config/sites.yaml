@@ -518,3 +518,117 @@ sites:
       # ATENCAO: em 10/09/2026 o site respondia HTTP 500 (fora do ar). Ate
       # voltar, a publicacao aqui vai falhar e ficar registrada em execucoes.
       radar: auto
+
+  # ── 7d (novembro/2026) ──────────────────────────────────────────────────
+  #
+  # Portal generalista, roda SO' no Mac (modelo local). Esquema: as pautas
+  # chegam PLANEJADAS na tabela `ideias` (status 'marcada'), com os fatos ja'
+  # apurados em detalhes.fatos (afirmacao + fonte_url); o modelo local faz
+  # angulo, brief, texto e checagem (radar/motor.py -> radar/publicar.py).
+  # Hub sem `fontes` de proposito: a busca local nao roda aqui, entao o
+  # unico numero que pode sair no texto e' o que veio na pauta.
+  #
+  # O id de cada hub e' o SLUG da categoria no WordPress do 7d, e
+  # `categorias` e' o nome dela como esta' la' (conferido em 17/11/2026).
+  #
+  # Aspas na chave: sem elas ainda e' texto, mas '7d' parece numero demais
+  # para deixar a cargo do YAML.
+  "7d":
+    dominio: 7d.com.br
+    entidade: "7D — notícias de tecnologia, entretenimento, esporte e dinheiro"
+    idioma: pt-BR
+    fuso: America/Sao_Paulo
+    motor: discover
+    autor: { nome: "Redação 7D" }
+
+    hubs:
+      - id: gerais
+        titulo: "Gerais"
+        url: /category/gerais
+        termos: [brasil, cotidiano, servico, serviço, feriado, calendario, calendário, clima, concurso, enem]
+        imagem: "city street people brazil"
+        categorias: ["Gerais"]
+        perfil_leitor: "quem quer entender rapido o assunto do dia e o que muda na pratica"
+      - id: tecnologia-ia
+        titulo: "Tecnologia e IA"
+        url: /category/tecnologia-ia
+        termos: [tecnologia, inteligencia artificial, inteligência artificial, ia, celular, smartphone, aplicativo, app, whatsapp, android, iphone, chatgpt]
+        imagem: "smartphone technology screen"
+        categorias: ["Tecnologia e IA"]
+        perfil_leitor: "quem usa celular e aplicativos todo dia e quer saber o que mudou e como usar"
+      - id: esporte
+        titulo: "Esporte"
+        url: /category/esporte
+        termos: [futebol, brasileirao, brasileirão, selecao, seleção, libertadores, copa, jogo, tabela, formula 1, fórmula 1, nba, volei, vôlei]
+        imagem: "soccer stadium football field"
+        categorias: ["Esporte"]
+        perfil_leitor: "torcedor que quer saber quando e onde assistir e o que esta' em jogo"
+      - id: viral-internet
+        titulo: "Viral e Internet"
+        url: /category/viral-internet
+        termos: [viral, meme, memes, tiktok, instagram, trend, redes sociais, streamer, youtuber, twitch]
+        imagem: "social media phone scrolling"
+        categorias: ["Viral e Internet"]
+        perfil_leitor: "quem viu o assunto passar nas redes e quer entender de onde veio"
+      - id: cultura-pop
+        titulo: "Cultura Pop"
+        url: /category/cultura-pop
+        termos: [filme, cinema, musica, música, show, turne, turnê, album, álbum, festival, livro, quadrinhos]
+        imagem: "concert crowd stage lights"
+        categorias: ["Cultura Pop"]
+        perfil_leitor: "fa de musica, cinema e shows que quer data, preco e contexto"
+      - id: tv-streaming
+        titulo: "TV e Streaming"
+        url: /category/tv-streaming
+        termos: [netflix, prime video, disney, max, globoplay, streaming, serie, série, temporada, novela, reality, estreia]
+        imagem: "streaming tv remote couch"
+        categorias: ["TV e Streaming"]
+        perfil_leitor: "quem decide o que assistir hoje e quer saber onde e quando estreia"
+      - id: dinheiro
+        titulo: "Dinheiro"
+        url: /category/dinheiro
+        termos: [dinheiro, salario, salário, pix, imposto, inss, fgts, decimo terceiro, décimo terceiro, black friday, preco, preço, desconto]
+        imagem: "money wallet coins budget"
+        categorias: ["Dinheiro"]
+        perfil_leitor: "quem quer saber quanto vai pagar ou receber e ate' quando"
+      - id: games-geek
+        titulo: "Games e Geek"
+        url: /category/games-geek
+        termos: [game, games, jogo, jogos, playstation, ps5, xbox, nintendo, switch, steam, console, geek]
+        imagem: "video game controller console"
+        categorias: ["Games e Geek"]
+        perfil_leitor: "jogador de console e PC que quer preco, data e requisito sem enrolacao"
+      - id: gta-vi
+        titulo: "GTA VI"
+        url: /category/games-geek/gta-vi
+        termos: [gta 6, gta vi, gta, rockstar, vice city, leonida]
+        imagem: "video game controller neon city"
+        categorias: ["GTA VI"]
+        perfil_leitor: "quem vai jogar GTA 6 no lancamento e quer a resposta pratica"
+      - id: moda-beleza
+        titulo: "Moda e Beleza"
+        url: /category/moda-beleza
+        termos: [moda, beleza, tendencia, tendência, cabelo, maquiagem, skincare, unha, look, perfume]
+        imagem: "fashion clothes beauty products"
+        categorias: ["Moda e Beleza"]
+        perfil_leitor: "quem quer usar a tendencia do momento gastando pouco"
+      # 'imagem: false': a pauta fala de gente viva. Foto de acervo ao lado
+      # do nome sugere que e' a pessoa — e nao e' (mesma regra do ferrugem).
+      - id: famosos
+        titulo: "Famosos"
+        url: /category/famosos
+        termos: [famoso, famosos, celebridade, ator, atriz, cantor, cantora, influenciador, influenciadora]
+        imagem: false
+        categorias: ["Famosos"]
+        perfil_leitor: "quem acompanha celebridades e quer o fato confirmado, sem fofoca"
+
+    wordpress:
+      url: https://7d.com.br
+      usuario_env: WP_7D_USUARIO
+      senha_env: WP_7D_SENHA
+      categoria_por_hub: true
+
+    publicacao:
+      # RASCUNHO na largada: o primeiro lote entra no WP como draft para ser
+      # lido antes de ir ao ar. Aprovado o padrao, trocar para 'auto'.
+      radar: rascunho

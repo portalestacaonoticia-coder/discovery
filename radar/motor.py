@@ -143,7 +143,17 @@ def roda_site_discover(nome: str, site: dict, banco: Banco, seco: bool = False,
     if marcadas and produzindo:
         inicio_dia = inicio_do_dia_sp()
         vagas = int(meta.get("pautas_por_dia") or 0) - leitor.selecionadas_hoje(nome, inicio_dia)
-        print(f"  {len(marcadas)} ideia(s) marcada(s), {max(vagas, 0)} vaga(s) hoje")
+        # No Mac o modelo local leva ~10 min por pauta e a rodada e' dividida
+        # com o doll: RADAR_IDEIAS_POR_RODADA limita quantas viram pauta por
+        # rodada (0 ou ausente = so' a meta do dia, como sempre foi).
+        try:
+            por_rodada = int(env("RADAR_IDEIAS_POR_RODADA") or 0)
+        except ValueError:
+            por_rodada = 0
+        if por_rodada > 0:
+            vagas = min(vagas, por_rodada)
+        print(f"  {len(marcadas)} ideia(s) marcada(s), {max(vagas, 0)} vaga(s) "
+              + ("nesta rodada" if por_rodada > 0 else "hoje"))
         for ideia in marcadas:
             if vagas <= 0:
                 break

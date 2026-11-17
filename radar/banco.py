@@ -558,6 +558,17 @@ class Banco:
             print(f"  aviso: ideias nao gravadas ({str(erro)[:120]}) — "
                   f"aplique sql/ideias-2026-10.sql")
 
+    def grava_ideias_planejadas(self, linhas: list[dict]) -> int:
+        """Pautas planejadas (radar/pautas_planejadas.py): entram JA' marcadas.
+        So' INSERE — a que ja' existe (site, hub, chave) fica como esta', para
+        recarregar um plano nao devolver a' fila o que ja' foi produzido.
+        Devolve quantas entraram."""
+        if not linhas or self.seco or not self.cliente:
+            return 0
+        r = (self.cliente.table("ideias")
+             .upsert(linhas, on_conflict="site,hub,chave", ignore_duplicates=True).execute())
+        return len(r.data or [])
+
     def ideias_marcadas(self, site: str, limite: int = 20) -> list[dict]:
         """As ideias que a pessoa marcou e ainda nao viraram pauta, na ordem
         em que foram marcadas."""
