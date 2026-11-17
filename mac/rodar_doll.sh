@@ -7,7 +7,7 @@
 #                       saida/ensaio/ (radar/ensaio_local.py). So' le o banco:
 #                       o GitHub segue dono do doll. Roda a' mao.
 #   RADAR_MODO=publicar o Mac vira dono do doll (coleta, grava e publica),
-#                       junto com RADAR_IGNORA_SITES=doll no GitHub.
+#                       desde que a tela Radar diga que o doll roda no Mac.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -21,6 +21,9 @@ trap 'rmdir "$TRAVA"' EXIT
 
 set -a; [ -f .env ] && . ./.env; set +a
 export RADAR_SITES=doll
+# Este ambiente e' o MAC: so' roda site que a tela Radar do conteudo.tihee
+# marcou como 'mac' (metas.ambiente; ver radar/config.py:site_ativo).
+export RADAR_AMBIENTE=mac
 PY=.venv/bin/python
 MODO="${RADAR_MODO:-ensaio}"
 echo "=== $(date '+%d/%m/%Y %H:%M') — doll, modo $MODO ==="
@@ -116,6 +119,19 @@ if [ "$MODO" = "publicar" ]; then
   com_prazo $PY -m radar.satelites || true
   com_prazo $PY -m radar.publicar --site doll || true
   com_prazo $PY -m radar.reserva || true
+
+  # 7d (17/11/2026): mesma rodada, mesma trava, DEPOIS do doll — o cluster
+  # atende um pedido por vez e o doll nunca fica sem a vez dele. As pautas
+  # vem planejadas (tabela ideias, status 'marcada', com os fatos ja'
+  # apurados em detalhes.fatos); o modelo local so' escreve. Poucas por
+  # rodada (RADAR_IDEIAS_POR_RODADA) para a rodada caber nos 30 min.
+  # So' roda com a senha de aplicativo do WP no .env: sem ela nada sairia.
+  if [ -n "${WP_7D_USUARIO:-}" ] && [ -n "${WP_7D_SENHA:-}" ]; then
+    echo "--- 7d ---"
+    export RADAR_IDEIAS_POR_RODADA="${RADAR_IDEIAS_POR_RODADA:-2}"
+    com_prazo env RADAR_SITES=7d $PY -m radar.motor --site 7d || true
+    com_prazo env RADAR_SITES=7d $PY -m radar.publicar --site 7d || true
+  fi
 else
   # So' leitura: mesma pauta, texto local x texto no ar, para revisar.
   $PY -m radar.ensaio_local --site doll --limite "${RADAR_ENSAIO_LIMITE:-10}" || true

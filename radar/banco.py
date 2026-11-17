@@ -233,6 +233,14 @@ class Banco:
             return "wp_url"
         return "ja existia"
 
+    def ambientes_dos_sites(self) -> dict[str, str]:
+        """{site: 'nuvem' | 'mac'} de metas.ambiente (tela Radar). Erro de
+        leitura SOBE: quem chama (config.site_ativo) decide nao rodar."""
+        if self.seco or not self.cliente:
+            return {}
+        r = self.cliente.table("metas").select("site,ambiente").execute()
+        return {l["site"]: (l.get("ambiente") or "nuvem") for l in (r.data or [])}
+
     def meta_do_site(self, site: str) -> dict | None:
         if self.seco or not self.cliente:
             return None
@@ -557,6 +565,17 @@ class Banco:
         except Exception as erro:
             print(f"  aviso: ideias nao gravadas ({str(erro)[:120]}) — "
                   f"aplique sql/ideias-2026-10.sql")
+
+    def grava_ideias_planejadas(self, linhas: list[dict]) -> int:
+        """Pautas planejadas (radar/pautas_planejadas.py): entram JA' marcadas.
+        So' INSERE — a que ja' existe (site, hub, chave) fica como esta', para
+        recarregar um plano nao devolver a' fila o que ja' foi produzido.
+        Devolve quantas entraram."""
+        if not linhas or self.seco or not self.cliente:
+            return 0
+        r = (self.cliente.table("ideias")
+             .upsert(linhas, on_conflict="site,hub,chave", ignore_duplicates=True).execute())
+        return len(r.data or [])
 
     def ideias_marcadas(self, site: str, limite: int = 20) -> list[dict]:
         """As ideias que a pessoa marcou e ainda nao viraram pauta, na ordem

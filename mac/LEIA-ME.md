@@ -39,7 +39,33 @@ Aprovado, a troca é feita junta, nos dois lados:
 
 1. No Mac: `RADAR_MODO=publicar` no `.env` e `bash mac/ligar_agendamento.sh`
    (de 30 em 30 min; log em `tail -f ~/Library/Logs/radar-doll.log`).
-2. No GitHub: Settings → Secrets and variables → Actions → **Variables** →
-   `RADAR_IGNORA_SITES` = `doll`. Sem isso o doll sai nos dois lados.
+2. Na tela Radar do conteudo.tihee: em "Onde roda", escolher **Mac** para o
+   doll. Fica em `metas.ambiente` e vale na rodada seguinte dos dois lados;
+   sem isso o Mac pula o doll e a nuvem continua dona dele.
 
-Voltar à nuvem: apagar a variável e `bash mac/ligar_agendamento.sh desligar`.
+Voltar à nuvem: escolher **Nuvem** na tela e `bash mac/ligar_agendamento.sh desligar`.
+
+## 7d no mesmo cluster (desde 17/11/2026)
+
+O 7d roda na **mesma rodada** do doll (`mac/rodar_doll.sh`), depois dele e sob
+a mesma trava: o cluster atende um pedido por vez e o doll nunca perde a vez.
+
+O esquema é outro: **a pauta chega planejada e o Qwen só escreve.**
+
+1. O planejamento (uma sessão do Claude) escolhe as pautas e apura os fatos,
+   cada um com a URL onde foi lido, e grava um plano em JSON.
+2. `python -m radar.pautas_planejadas plano.json --site 7d` põe as pautas na
+   tabela `ideias` como `marcada` (`--seco` só confere). Pauta com menos de 5
+   fatos com fonte é recusada.
+3. A cada rodada o motor pega até `RADAR_IDEIAS_POR_RODADA` pautas (padrão 2)
+   e o Qwen faz ângulo → brief → texto → checagem. Número que não está nos
+   fatos da pauta reprova o texto.
+4. O texto vai para o WordPress do 7d. Enquanto `publicacao.radar` for
+   `rascunho` no `config/sites.yaml`, entra como rascunho; `auto` publica.
+
+Para ligar: o 7d precisa estar como **Mac** em "Onde roda" na tela Radar; e preencher `WP_7D_USUARIO` e `WP_7D_SENHA` (senha de aplicativo) no
+`.env`. Sem as duas, a rodada pula o 7d. O teto do dia é `metas.pautas_por_dia`
+do site `7d`, e a produção só acontece dentro de `producao_inicio`/`producao_fim`.
+
+Conta de tempo: cada texto do motor são ~4 chamadas ao modelo (~10 min). Com 2
+por rodada cabem ~4 por hora, perto de 45 por dia na janela das 8h às 20h.

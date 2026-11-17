@@ -27,16 +27,57 @@ def _lista_env(nome: str) -> set[str]:
     return {s.strip() for s in (env(nome) or "").split(",") if s.strip()}
 
 
-def site_ativo(nome: str) -> bool:
-    """Este ambiente roda o site? (16/10/2026, doll no Mac.)
+AMBIENTES = ("nuvem", "mac")
+_ambientes_cache: dict[str, str] | None = None
 
-    RADAR_SITES      lista branca: so' estes rodam aqui (o Mac usa "doll").
-    RADAR_IGNORA_SITES  lista negra: estes rodam em outro lugar (o GitHub
-                     Actions recebe "doll" pela variavel do repositorio
-                     quando o Mac assume). Vazias = todos, como antes.
-    Sem isso o doll rodaria nos dois lados e publicaria em dobro."""
+
+def ambiente_atual() -> str:
+    """Quem e' este ambiente: 'mac' (mac/rodar_doll.sh exporta) ou 'nuvem'
+    (GitHub Actions; e' o padrao quando RADAR_AMBIENTE nao esta' definida)."""
+    valor = (env("RADAR_AMBIENTE") or "nuvem").strip().lower()
+    return valor if valor in AMBIENTES else "nuvem"
+
+
+def _ambientes_dos_sites() -> dict[str, str] | None:
+    """{site: ambiente} lido de metas.ambiente, uma vez por processo. None =
+    nao ha' banco configurado (teste offline): sem banco nao existe outro
+    ambiente com quem dividir, entao tudo roda aqui."""
+    global _ambientes_cache
+    if _ambientes_cache is None:
+        if not (env("SUPABASE_URL") and env("SUPABASE_SERVICE_KEY")):
+            return None
+        from .banco import Banco
+        _ambientes_cache = Banco().ambientes_dos_sites()
+    return _ambientes_cache
+
+
+def site_ativo(nome: str) -> bool:
+    """Este ambiente roda o site?
+
+    Onde cada site roda e' escolhido na tela Radar do conteudo.tihee e fica
+    em metas.ambiente ('nuvem' ou 'mac'; site sem linha em metas = nuvem). O
+    site roda aqui quando esse valor e' o RADAR_AMBIENTE deste ambiente.
+    Trocar na tela vale na rodada seguinte dos dois lados, sem deploy. Sem
+    isso o site rodaria nos dois lados e publicaria em dobro.
+
+    Se o banco nao responder, NINGUEM roda (melhor uma rodada perdida que o
+    site saindo em dobro, e na nuvem pagando OpenAI).
+
+    RADAR_SITES continua valendo como lista branca local: e' como a rodada
+    do Mac chama um site de cada vez.
+
+    (Ate' 17/11/2026 isso era a variavel RADAR_IGNORA_SITES do GitHub.)"""
     so = _lista_env("RADAR_SITES")
-    return (not so or nome in so) and nome not in _lista_env("RADAR_IGNORA_SITES")
+    if so and nome not in so:
+        return False
+    try:
+        ambientes = _ambientes_dos_sites()
+    except Exception as erro:
+        print(f"  aviso: nao li onde {nome} roda ({str(erro)[:120]}) — nao roda nesta rodada")
+        return False
+    if ambientes is None:
+        return True
+    return ambientes.get(nome, "nuvem") == ambiente_atual()
 
 
 def filtra_sites(sites: dict) -> dict:

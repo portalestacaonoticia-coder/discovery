@@ -12,7 +12,9 @@ radar/
 ├── sql/schema.sql          ← tabelas Supabase (itens, pautas, fontes, execucoes) +
 │                             bases proprias por site (eventos, cotacoes). RLS ligado.
 ├── radar/
-│   ├── config.py           ← le sites.yaml e .env
+│   ├── config.py           ← le sites.yaml e .env; `site_ativo` decide se o site roda
+│   │                         NESTE ambiente (metas.ambiente, escolhido na tela
+│   │                         Radar do conteudo.tihee, x RADAR_AMBIENTE)
 │   ├── fontes.py           ← coletores: rss, google_news, sitemap_news.
 │   │                         So' titulo/URL/data/resumo — nunca texto integral alheio.
 │   ├── normaliza.py        ← titulo normalizado, URL canonica e hash de dedup.
@@ -52,6 +54,10 @@ radar/
 │   ├── busca_local.py      ← busca do modo local: SearXNG + leitura das paginas
 │   │                         dos dominios permitidos. A citacao leva o texto
 │   │                         lido, e pesquisa._valor_lido confere o numero.
+│   ├── pautas_planejadas.py ← carrega um PLANO de pautas (JSON) na fila do motor:
+│   │                         cada pauta entra em `ideias` ja' 'marcada', com os
+│   │                         fatos apurados em detalhes.fatos. E' o esquema do
+│   │                         7d: o planejamento vem pronto, o modelo local escreve.
 │   ├── ensaio_local.py     ← reescreve pautas ja' publicadas com o modelo local
 │   │                         e poe ao lado do que esta' no ar (saida/ensaio/).
 │   ├── gerador_satelite.py ← artigo-satelite: escrito pelo gpt-5.6-luna quando ha chave
@@ -83,6 +89,7 @@ radar/
 ├── testar_dolar.py         ← teste offline do gerador de cotacao, com serie simulada
 ├── testar_selecao.py       ← teste offline da selecao automatica de pautas
 ├── testar_conferente.py    ← teste offline do conferente do satelite (erros reais do ensaio de 19/10)
+├── testar_planejadas.py   ← teste offline das pautas planejadas (carga + fatos na pesquisa)
 ├── testar_llm_local.py     ← teste offline do modo local (exo + SearXNG simulados)
 ├── mac/                    ← kit do doll nos Macs: instalar.sh, rodar_doll.sh,
 │                             agendamento (launchd), SearXNG. Ver mac/LEIA-ME.md.
@@ -105,6 +112,7 @@ radar/
 ## Onde mexer
 
 - **Adicionar site** → `config/sites.yaml`
+- **Pautas planejadas (7d)** → plano em JSON + `python -m radar.pautas_planejadas plano.json --site 7d`
 - **Novo tipo de fonte** → `radar/fontes.py` (funcao `coleta`)
 - **Novo angulo de pauta** → `radar/angulos.py`
 - **Nova base propria** → tabela em `sql/schema.sql` + consulta em `radar/banco.py`

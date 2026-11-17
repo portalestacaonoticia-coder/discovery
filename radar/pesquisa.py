@@ -195,6 +195,20 @@ def pesquisa(ideia: dict, angulo: dict, nome: str, site: dict, hub: dict, banco)
     fatos: list[dict] = []
     citacoes: list[dict] = []
     buscas = 0
+    # Fatos do PLANEJADOR (17/11/2026, 7d): quem planeja a pauta ja' apurou e
+    # manda em ideias.detalhes.fatos, cada um com a URL onde foi lido. Entram
+    # antes dos da busca e valem como os unicos numeros permitidos — o modelo
+    # local so' escreve. Fato sem afirmacao ou sem URL http(s) e' ignorado.
+    for f in detalhes.get("fatos") or []:
+        if (isinstance(f, dict) and str(f.get("afirmacao") or "").strip()
+                and str(f.get("fonte_url") or "").startswith(("http://", "https://"))):
+            fatos.append({
+                "afirmacao": str(f["afirmacao"]).strip()[:400],
+                "valor": str(f.get("valor") or "").strip()[:120],
+                "fonte_url": str(f["fonte_url"]).strip(),
+                "fonte_nome": str(f.get("fonte_nome") or _dominio(f["fonte_url"])).strip()[:120],
+                "data": str(f.get("data") or "").strip()[:40],
+            })
     if dominios and llm.tem_chave():
         texto, citacoes = llm.gera_com_busca(
             _prompt_pesquisa(ideia, angulo, hub), dominios,
