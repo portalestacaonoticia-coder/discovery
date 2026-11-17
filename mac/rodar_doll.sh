@@ -43,6 +43,33 @@ if ! curl -sf -m 10 "${LLM_LOCAL_URL:-http://localhost:52415/v1}/models" >/dev/n
   exit 0
 fi
 
+# Aberto sem modelo: depois de reiniciar (02/11/2026) ou de um runner cair
+# (16-17/11/2026) o exo fica de pe' com 0 instancias, e o doll parava ate'
+# alguem carregar o modelo a' mao. Sem instancia, carrega nos 2 Macs e espera
+# ate' 5 min os runners ficarem prontos. Runner travado COM instancia nao e'
+# isso: segue para o teste abaixo, que avisa para reiniciar o EXO.
+EXO_BASE="${LLM_LOCAL_URL:-http://localhost:52415/v1}"
+EXO_BASE="${EXO_BASE%/v1}"
+EXO_ESPERA_S="${RADAR_EXO_ESPERA_S:-300}"
+instancias_exo() {
+  curl -sf -m 10 "$EXO_BASE/state" | "$PY" -c "import json,sys; print(len(json.load(sys.stdin).get('instances') or {}))" 2>/dev/null
+}
+prontos_exo() {
+  n=$(curl -sf -m 10 "$EXO_BASE/state" | "$PY" -c "import json,sys; print(sum('RunnerReady' in r for r in (json.load(sys.stdin).get('runners') or {}).values()))" 2>/dev/null)
+  echo "${n:-0}"
+}
+if [ "$(instancias_exo)" = "0" ]; then
+  echo "exo sem modelo carregado — carregando nos 2 Macs"
+  curl -sf -m 30 -X POST "$EXO_BASE/place_instance" -H 'Content-Type: application/json' \
+    -d "{\"model_id\":\"${LLM_LOCAL_MODELO:-mlx-community/Qwen3.8-27B-8bit}\",\"sharding\":\"Tensor\",\"instance_meta\":\"MlxJaccl\",\"min_nodes\":2}" >/dev/null \
+    || echo "  o exo recusou o pedido de carga"
+  inicio=$SECONDS
+  while [ "$(prontos_exo)" -lt 2 ] && [ $((SECONDS - inicio)) -lt "$EXO_ESPERA_S" ]; do
+    sleep 10
+  done
+  echo "  $(prontos_exo) runner(s) pronto(s) apos $((SECONDS - inicio)) s"
+fi
+
 # De pe' nao basta: em 19/10/2026 o exo respondia /models mas deixava toda
 # geracao em "Pending" ate' o prazo de 20 min (um runner parado). Uma frase
 # curta de verdade, com prazo de 2 min; sem resposta, a rodada nao comeca
