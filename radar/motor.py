@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from . import ideias as mod_ideias, llm, sinais as mod_sinais
 from .alerta import avisa
 from .banco import Banco
-from .config import carrega_sites, env
+from .config import carrega_sites, env, filtra_sites
 from .oportunidade import (avisos_de_producao, componentes, criterios_discover,
                            em_producao, pontua_topico, seleciona_topicos)
 from .selecao import FUSO_SP, inicio_do_dia_sp
@@ -200,8 +200,11 @@ def main() -> int:
             print(f"Site '{args.site}' nao tem motor: discover no config/sites.yaml")
             return 1
         sites = {args.site: sites[args.site]}
+    # Mesmo filtro de ambiente do principal e do publicar: site que a tela
+    # mandou para o outro lado (nuvem x Mac) nao produz aqui.
+    sites = filtra_sites(sites)
     if not sites:
-        print("Nenhum site com motor: discover")
+        print("Nenhum site com motor: discover neste ambiente")
         return 0
 
     banco = Banco(seco=args.seco)

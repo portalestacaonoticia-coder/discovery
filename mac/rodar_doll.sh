@@ -7,7 +7,7 @@
 #                       saida/ensaio/ (radar/ensaio_local.py). So' le o banco:
 #                       o GitHub segue dono do doll. Roda a' mao.
 #   RADAR_MODO=publicar o Mac vira dono do doll (coleta, grava e publica),
-#                       junto com RADAR_IGNORA_SITES=doll no GitHub.
+#                       desde que a tela Radar diga que o doll roda no Mac.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -21,6 +21,9 @@ trap 'rmdir "$TRAVA"' EXIT
 
 set -a; [ -f .env ] && . ./.env; set +a
 export RADAR_SITES=doll
+# Este ambiente e' o MAC: so' roda site que a tela Radar do conteudo.tihee
+# marcou como 'mac' (metas.ambiente; ver radar/config.py:site_ativo).
+export RADAR_AMBIENTE=mac
 PY=.venv/bin/python
 MODO="${RADAR_MODO:-ensaio}"
 echo "=== $(date '+%d/%m/%Y %H:%M') — doll, modo $MODO ==="

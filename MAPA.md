@@ -12,7 +12,9 @@ radar/
 ├── sql/schema.sql          ← tabelas Supabase (itens, pautas, fontes, execucoes) +
 │                             bases proprias por site (eventos, cotacoes). RLS ligado.
 ├── radar/
-│   ├── config.py           ← le sites.yaml e .env
+│   ├── config.py           ← le sites.yaml e .env; `site_ativo` decide se o site roda
+│   │                         NESTE ambiente (metas.ambiente, escolhido na tela
+│   │                         Radar do conteudo.tihee, x RADAR_AMBIENTE)
 │   ├── fontes.py           ← coletores: rss, google_news, sitemap_news.
 │   │                         So' titulo/URL/data/resumo — nunca texto integral alheio.
 │   ├── normaliza.py        ← titulo normalizado, URL canonica e hash de dedup.

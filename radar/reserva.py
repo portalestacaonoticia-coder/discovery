@@ -168,7 +168,7 @@ def main() -> int:
     args = p.parse_args()
 
     if not site_ativo(SITE):
-        print(f"{SITE} roda em outro ambiente (RADAR_SITES/RADAR_IGNORA_SITES)")
+        print(f"{SITE} roda em outro ambiente (tela Radar: onde o site roda)")
         return 0
     site = carrega_sites()[SITE]
     piso = (site.get("publicacao") or {}).get("piso")

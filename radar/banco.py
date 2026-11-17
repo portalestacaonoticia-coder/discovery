@@ -233,6 +233,14 @@ class Banco:
             return "wp_url"
         return "ja existia"
 
+    def ambientes_dos_sites(self) -> dict[str, str]:
+        """{site: 'nuvem' | 'mac'} de metas.ambiente (tela Radar). Erro de
+        leitura SOBE: quem chama (config.site_ativo) decide nao rodar."""
+        if self.seco or not self.cliente:
+            return {}
+        r = self.cliente.table("metas").select("site,ambiente").execute()
+        return {l["site"]: (l.get("ambiente") or "nuvem") for l in (r.data or [])}
+
     def meta_do_site(self, site: str) -> dict | None:
         if self.seco or not self.cliente:
             return None

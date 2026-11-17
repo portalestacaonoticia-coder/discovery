@@ -136,14 +136,31 @@ def main():
     confere("sem SEARXNG_URL -> (None, [])",
             llm.gera_com_busca("Ideia: x", ["gov.br"]) == (None, []))
 
-    print("quem roda o doll")
+    print("quem roda cada site (tela Radar -> metas.ambiente)")
+    from radar import config as cfg
+    original = cfg._ambientes_dos_sites
+    cfg._ambientes_dos_sites = lambda: None       # sem banco (o .env local pode ter um)
     os.environ["RADAR_SITES"] = "doll"
-    confere("Mac: so' o doll", filtra_sites({"doll": {}, "broune": {}}) == {"doll": {}})
+    confere("lista branca local: so' o doll", filtra_sites({"doll": {}, "broune": {}}) == {"doll": {}})
     os.environ.pop("RADAR_SITES")
-    os.environ["RADAR_IGNORA_SITES"] = "doll"
-    confere("GitHub: tudo menos o doll", not site_ativo("doll") and site_ativo("broune"))
-    os.environ.pop("RADAR_IGNORA_SITES")
-    confere("sem variavel: todos", site_ativo("doll") and site_ativo("broune"))
+    confere("sem banco: todos", site_ativo("doll") and site_ativo("broune"))
+    cfg._ambientes_dos_sites = lambda: {"doll": "mac", "7d": "mac", "broune": "nuvem"}
+    os.environ.pop("RADAR_AMBIENTE", None)
+    confere("nuvem (padrao): tudo menos o que esta' no Mac",
+            not site_ativo("doll") and site_ativo("broune") and site_ativo("site-sem-meta"))
+    os.environ["RADAR_AMBIENTE"] = "mac"
+    confere("Mac: so' o que a tela mandou para ca'",
+            site_ativo("doll") and site_ativo("7d") and not site_ativo("broune")
+            and not site_ativo("site-sem-meta"))
+    os.environ["RADAR_SITES"] = "7d"
+    confere("Mac + lista branca: um site por chamada", site_ativo("7d") and not site_ativo("doll"))
+    os.environ.pop("RADAR_SITES")
+    def _quebra():
+        raise RuntimeError("banco fora")
+    cfg._ambientes_dos_sites = _quebra
+    confere("banco fora: ninguem roda", not site_ativo("doll") and not site_ativo("broune"))
+    cfg._ambientes_dos_sites = original
+    os.environ.pop("RADAR_AMBIENTE")
 
     print("nota em texto (10/11/2026)")
     confere("frase com 'Alta' -> 8", llm.nota(

@@ -39,10 +39,11 @@ Aprovado, a troca é feita junta, nos dois lados:
 
 1. No Mac: `RADAR_MODO=publicar` no `.env` e `bash mac/ligar_agendamento.sh`
    (de 30 em 30 min; log em `tail -f ~/Library/Logs/radar-doll.log`).
-2. No GitHub: Settings → Secrets and variables → Actions → **Variables** →
-   `RADAR_IGNORA_SITES` = `doll`. Sem isso o doll sai nos dois lados.
+2. Na tela Radar do conteudo.tihee: em "Onde roda", escolher **Mac** para o
+   doll. Fica em `metas.ambiente` e vale na rodada seguinte dos dois lados;
+   sem isso o Mac pula o doll e a nuvem continua dona dele.
 
-Voltar à nuvem: apagar a variável e `bash mac/ligar_agendamento.sh desligar`.
+Voltar à nuvem: escolher **Nuvem** na tela e `bash mac/ligar_agendamento.sh desligar`.
 
 ## 7d no mesmo cluster (desde 17/11/2026)
 
@@ -62,7 +63,7 @@ O esquema é outro: **a pauta chega planejada e o Qwen só escreve.**
 4. O texto vai para o WordPress do 7d. Enquanto `publicacao.radar` for
    `rascunho` no `config/sites.yaml`, entra como rascunho; `auto` publica.
 
-Para ligar: preencher `WP_7D_USUARIO` e `WP_7D_SENHA` (senha de aplicativo) no
+Para ligar: o 7d precisa estar como **Mac** em "Onde roda" na tela Radar; e preencher `WP_7D_USUARIO` e `WP_7D_SENHA` (senha de aplicativo) no
 `.env`. Sem as duas, a rodada pula o 7d. O teto do dia é `metas.pautas_por_dia`
 do site `7d`, e a produção só acontece dentro de `producao_inicio`/`producao_fim`.
 
