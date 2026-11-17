@@ -233,6 +233,44 @@ class Banco:
             return "wp_url"
         return "ja existia"
 
+    # -- cluster (tela Qwen do conteudo.tihee; ver radar/cluster.py) ----------
+
+    def grava_cluster_estado(self, no: str, campos: dict) -> None:
+        """Upsert parcial: so' as colunas em `campos` mudam (o agente escreve
+        o estado do exo; a rodada escreve a etapa — um nao apaga o outro)."""
+        if self.seco or not self.cliente:
+            return
+        self.cliente.table("cluster_estado").upsert({"no": no, **campos}, on_conflict="no").execute()
+
+    def cluster_estado(self, no: str) -> dict | None:
+        if self.seco or not self.cliente:
+            return None
+        r = self.cliente.table("cluster_estado").select("*").eq("no", no).limit(1).execute()
+        return r.data[0] if r.data else None
+
+    def cluster_apps(self) -> list[dict]:
+        if self.seco or not self.cliente:
+            return []
+        return self.cliente.table("cluster_apps").select("*").execute().data or []
+
+    def cluster_comandos_pendentes(self) -> list[dict]:
+        if self.seco or not self.cliente:
+            return []
+        r = (self.cliente.table("cluster_comandos").select("*").eq("status", "pendente")
+             .order("criado_em").limit(10).execute())
+        return r.data or []
+
+    def marca_cluster_comando(self, comando_id: int, status: str, resultado: str | None = None) -> None:
+        if self.seco or not self.cliente:
+            return
+        from datetime import datetime, timezone
+        campos: dict = {"status": status}
+        if resultado is not None:
+            campos["resultado"] = resultado[:500]
+        if status in ("feito", "falhou"):
+            campos["executado_em"] = datetime.now(timezone.utc).isoformat()
+        self.cliente.table("cluster_comandos").update(campos).eq("id", comando_id).execute()
+
     def ambientes_dos_sites(self) -> dict[str, str]:
         """{site: 'nuvem' | 'mac'} de metas.ambiente (tela Radar). Erro de
         leitura SOBE: quem chama (config.site_ativo) decide nao rodar."""

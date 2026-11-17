@@ -69,3 +69,18 @@ do site `7d`, e a produção só acontece dentro de `producao_inicio`/`producao_
 
 Conta de tempo: cada texto do motor são ~4 chamadas ao modelo (~10 min). Com 2
 por rodada cabem ~4 por hora, perto de 45 por dia na janela das 8h às 20h.
+
+## Tela Qwen (conteudo.tihee.com.br/qwen)
+
+O cluster é gerenciado pela tela **Qwen** do conteudo.tihee. Como o exo só
+responde dentro da rede do Mac, a ponte é o banco do radar:
+
+- `bash mac/ligar_agente.sh` liga o **agente** (`radar/cluster.py`), que de
+  minuto em minuto publica o estado do exo e executa os comandos da tela
+  ("Rodar agora", "Recarregar modelo"). Ele só lê o exo, nunca pede texto.
+  Log: `tail -f ~/Library/Logs/cluster-agente.log`.
+- A rodada (`mac/rodar_doll.sh`) roda os blogs do **cadastro** da tela, por
+  prioridade: sem pausa, marcados como Mac em "Onde roda" e com a senha do
+  WordPress no `.env`. "Pautas por rodada" e a pausa valem na rodada seguinte.
+- Blog novo no cluster: bloco no `config/sites.yaml`, senha do WP no `.env`
+  e cadastro na tela.

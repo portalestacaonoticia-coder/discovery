@@ -58,6 +58,10 @@ radar/
 │   │                         cada pauta entra em `ideias` ja' 'marcada', com os
 │   │                         fatos apurados em detalhes.fatos. E' o esquema do
 │   │                         7d: o planejamento vem pronto, o modelo local escreve.
+│   ├── cluster.py          ← agente do cluster (tela Qwen do conteudo.tihee): publica
+│   │                         o estado do exo em cluster_estado, executa os
+│   │                         cluster_comandos e diz quais blogs a rodada roda
+│   │                         (cluster_apps: prioridade, pautas por rodada, pausa)
 │   ├── ensaio_local.py     ← reescreve pautas ja' publicadas com o modelo local
 │   │                         e poe ao lado do que esta' no ar (saida/ensaio/).
 │   ├── gerador_satelite.py ← artigo-satelite: escrito pelo gpt-5.6-luna quando ha chave
@@ -90,9 +94,11 @@ radar/
 ├── testar_selecao.py       ← teste offline da selecao automatica de pautas
 ├── testar_conferente.py    ← teste offline do conferente do satelite (erros reais do ensaio de 19/10)
 ├── testar_planejadas.py   ← teste offline das pautas planejadas (carga + fatos na pesquisa)
+├── testar_cluster.py      ← teste offline do agente do cluster
 ├── testar_llm_local.py     ← teste offline do modo local (exo + SearXNG simulados)
-├── mac/                    ← kit do doll nos Macs: instalar.sh, rodar_doll.sh,
-│                             agendamento (launchd), SearXNG. Ver mac/LEIA-ME.md.
+├── mac/                    ← kit dos Macs: instalar.sh, rodar_doll.sh (a rodada de
+│                             todos os blogs do cluster), ligar_agente.sh (agente
+│                             da tela Qwen), launchd, SearXNG. Ver mac/LEIA-ME.md.
 ├── wordpress/
 │   ├── radar-jsonld.php    ← mu-plugin: imprime o JSON-LD no <head> e ajusta
 │   │                         max-snippet/max-image-preview

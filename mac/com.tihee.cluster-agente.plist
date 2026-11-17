@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Agente do cluster: de minuto em minuto publica o estado do exo no banco e
+     executa os comandos da tela Qwen do conteudo.tihee (radar/cluster.py).
+     So' LE o exo; nunca pede texto. __PASTA__ e __LOG__ sao trocados pelo
+     mac/ligar_agente.sh. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.tihee.cluster-agente</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PASTA__/.venv/bin/python</string>
+    <string>-m</string>
+    <string>radar.cluster</string>
+    <string>agente</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__PASTA__</string>
+  <key>StartInterval</key>
+  <integer>60</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+    <key>RADAR_AMBIENTE</key>
+    <string>mac</string>
+  </dict>
+</dict>
+</plist>
